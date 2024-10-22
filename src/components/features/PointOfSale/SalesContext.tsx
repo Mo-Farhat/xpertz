@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { collection, addDoc, onSnapshot, query, updateDoc, doc, increment } from 'firebase/firestore';
 import { db } from '../../../firebase';
-import { Product, CartItem, SalesContextType, HirePurchaseAgreement } from './types';
+import { Product, CartItem, SalesContextType, Customer } from './types';
 
 const SalesContext = createContext<SalesContextType | undefined>(undefined);
 
@@ -16,11 +16,13 @@ export const useSalesContext = () => {
 export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [hirePurchaseItems, setHirePurchaseItems] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<string>('cash');
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [discount, setDiscount] = useState<number>(0);
+  const [isHirePurchase, setIsHirePurchase] = useState<boolean>(false);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'inventory'));
@@ -36,6 +38,21 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }, (error) => {
       console.error("Error fetching products: ", error);
       setError('Failed to fetch products. Please try again.');
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const q = query(collection(db, 'customers'));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const customersData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Customer));
+      setCustomers(customersData);
+    }, (error) => {
+      console.error("Error fetching customers: ", error);
+      setError('Failed to fetch customers. Please try again.');
     });
     return () => unsubscribe();
   }, []);
@@ -108,6 +125,9 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         totalDiscount: discount,
         total: calculateTotal(),
         paymentMethod: paymentMethod,
+        isHirePurchase: isHirePurchase,
+        customerId: selectedCustomer?.id,
+        customerName: selectedCustomer?.name,
         date: new Date(),
       });
 
@@ -120,6 +140,8 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       clearCart();
       setDiscount(0);
+      setIsHirePurchase(false);
+      setSelectedCustomer(null);
       return saleRef.id;
     } catch (error) {
       console.error("Error processing sale: ", error);
@@ -128,55 +150,10 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const transferCartToHirePurchase = () => {
-    setHirePurchaseItems([...cart]);
-    clearCart();
-  };
-
-  const createHirePurchaseAgreement = async (agreement: HirePurchaseAgreement) => {
-    try {
-      const agreementRef = await addDoc(collection(db, 'hirePurchaseAgreements'), {
-        customerId: agreement.selectedCustomer.id,
-        customerName: agreement.selectedCustomer.name,
-        items: agreement.items.map(item => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity
-        })),
-        totalAmount: agreement.totalAmount,
-        downPayment: agreement.downPayment,
-        months: agreement.months,
-        interestRate: agreement.interestRate,
-        paymentFrequency: agreement.paymentFrequency,
-        amountToFinance: agreement.amountToFinance,
-        monthlyPayment: agreement.monthlyPayment,
-        createdAt: new Date(),
-        status: 'active',
-      });
-
-      for (const item of agreement.items) {
-        const productRef = doc(db, 'inventory', item.id);
-        await updateDoc(productRef, {
-          quantity: increment(-item.quantity)
-        });
-      }
-
-      setHirePurchaseItems([]);
-
-      return agreementRef.id;
-    } catch (error) {
-      console.error("Error creating hire purchase agreement: ", error);
-      throw error;
-    }
-  };
-
   const value: SalesContextType = {
     products,
     cart,
     setCart,
-    hirePurchaseItems,
-    setHirePurchaseItems: transferCartToHirePurchase,
     paymentMethod,
     setPaymentMethod,
     error,
@@ -184,6 +161,11 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     searchTerm,
     setSearchTerm,
     discount,
+    isHirePurchase,
+    setIsHirePurchase,
+    customers,
+    selectedCustomer,
+    setSelectedCustomer,
     addToCart,
     removeFromCart,
     clearCart,
@@ -192,8 +174,6 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setTotalDiscount,
     applyProductDiscount,
     handleCheckout,
-    createHirePurchaseAgreement,
-    transferCartToHirePurchase,
   };
 
   return <SalesContext.Provider value={value}>{children}</SalesContext.Provider>;

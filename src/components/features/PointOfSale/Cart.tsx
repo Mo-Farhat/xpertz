@@ -3,18 +3,17 @@ import { Plus, Minus, Percent } from 'lucide-react';
 import { useSalesContext } from './SalesContext';
 import { CartItem } from './types';
 import { Button } from "../../ui/button";
-import { useNavigate } from 'react-router-dom';
 
 interface CartProps {
   onSetActiveInput: (inputId: string | null) => void;
   activeInput: string | null;
   numpadValue: string;
   onApplyDiscount: (productId: string, discount: number) => void;
+  isHirePurchase: boolean;
 }
 
-const Cart: React.FC<CartProps> = ({ onSetActiveInput, activeInput, numpadValue, onApplyDiscount }) => {
-  const { cart, removeFromCart, addToCart, calculateTotal, transferCartToHirePurchase } = useSalesContext();
-  const navigate = useNavigate();
+const Cart: React.FC<CartProps> = ({ onSetActiveInput, activeInput, numpadValue, onApplyDiscount, isHirePurchase }) => {
+  const { cart, removeFromCart, addToCart, calculateTotal } = useSalesContext();
 
   const renderCartItem = (item: CartItem) => {
     const isDiscountActive = activeInput === `product-${item.id}`;
@@ -69,30 +68,22 @@ const Cart: React.FC<CartProps> = ({ onSetActiveInput, activeInput, numpadValue,
     );
   };
 
-  const handleHirePurchase = () => {
-    transferCartToHirePurchase();
-    navigate('/point-of-sale/hire-purchasing');
-  };
-
   const total = calculateTotal();
-  const discountedTotal = cart.reduce((acc, item) => {
-    const discount = activeInput === `product-${item.id}` ? parseFloat(numpadValue) || item.discount : item.discount;
-    return acc + (item.price * (1 - discount / 100) * item.quantity);
-  }, 0);
 
   return (
     <div>
-      <h3 className="text-xl font-semibold mb-2">Cart</h3>
+      <h3 className="text-xl font-semibold mb-2">{isHirePurchase ? 'Hire Purchase Cart' : 'Cart'}</h3>
       {cart.map(renderCartItem)}
       <div className="mt-4">
-        <p className="text-xl font-bold">Subtotal: ${total.toFixed(2)}</p>
-        {discountedTotal !== total && (
-          <p className="text-2xl font-bold text-green-600">
-            Discounted Total: ${discountedTotal.toFixed(2)}
-          </p>
-        )}
+        <p className="text-xl font-bold">Total: ${total.toFixed(2)}</p>
       </div>
-
+      {isHirePurchase && (
+        <div className="mt-4">
+          <p className="text-sm text-gray-600">
+            Hire purchase terms and conditions will be applied at checkout.
+          </p>
+        </div>
+      )}
     </div>
   );
 };

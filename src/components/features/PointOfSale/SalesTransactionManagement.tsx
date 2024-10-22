@@ -6,17 +6,18 @@ import Cart from './Cart';
 import { Input } from "../../ui/input";
 import { Button } from "../../ui/button";
 import PaymentValidation from './PaymentValidation';
+import HirePurchasePaymentValidation from './HirePurchasePaymentValidation';
 import Numpad from './Numpad';
-import { useNavigate } from 'react-router-dom';
 import { useToast } from "../../hooks/use-toast";
 import { Product } from './types';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 
 const SalesTransactionManagement: React.FC = () => {
-  const { searchTerm, setSearchTerm, error, addToCart, discount, products, setTotalDiscount, applyProductDiscount, setHirePurchaseItems, cart } = useSalesContext();
+  const { searchTerm, setSearchTerm, error, addToCart, discount, products, setTotalDiscount, applyProductDiscount } = useSalesContext();
   const [showPaymentValidation, setShowPaymentValidation] = useState(false);
   const [activeInput, setActiveInput] = useState<string | null>(null);
   const [numpadValue, setNumpadValue] = useState('');
-  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('regular');
   const { toast } = useToast();
 
   const handleBackFromPayment = () => {
@@ -57,21 +58,10 @@ const SalesTransactionManagement: React.FC = () => {
     setActiveInput(null);
   };
 
-  const handleHirePurchase = () => {
-    if (cart.length === 0) {
-      toast({
-        title: "Error",
-        description: "Please add items to the cart before proceeding to Hire Purchase.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setHirePurchaseItems();
-    navigate('/point-of-sale/hire-purchasing');
-  };
-
   if (showPaymentValidation) {
-    return <PaymentValidation onBack={handleBackFromPayment} />;
+    return activeTab === 'hirePurchase' 
+      ? <HirePurchasePaymentValidation onBack={handleBackFromPayment} />
+      : <PaymentValidation onBack={handleBackFromPayment} />;
   }
 
   return (
@@ -96,12 +86,30 @@ const SalesTransactionManagement: React.FC = () => {
         />
       </div>
       <div className="bg-white rounded-lg shadow-md p-4">
-        <Cart
-          onSetActiveInput={setActiveInput}
-          activeInput={activeInput}
-          numpadValue={numpadValue}
-          onApplyDiscount={(productId, discount) => applyProductDiscount(productId, discount)}
-        />
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="regular">Regular Sale</TabsTrigger>
+            <TabsTrigger value="hirePurchase">Hire Purchase</TabsTrigger>
+          </TabsList>
+          <TabsContent value="regular">
+            <Cart
+              onSetActiveInput={setActiveInput}
+              activeInput={activeInput}
+              numpadValue={numpadValue}
+              onApplyDiscount={(productId, discount) => applyProductDiscount(productId, discount)}
+              isHirePurchase={false}
+            />
+          </TabsContent>
+          <TabsContent value="hirePurchase">
+            <Cart
+              onSetActiveInput={setActiveInput}
+              activeInput={activeInput}
+              numpadValue={numpadValue}
+              onApplyDiscount={(productId, discount) => applyProductDiscount(productId, discount)}
+              isHirePurchase={true}
+            />
+          </TabsContent>
+        </Tabs>
         <div className="mt-4">
           <Numpad
             onNumberClick={handleNumpadClick}
@@ -115,13 +123,7 @@ const SalesTransactionManagement: React.FC = () => {
             className="w-full bg-purple-600 hover:bg-purple-700 text-white"
             onClick={() => setShowPaymentValidation(true)}
           >
-            Payment
-          </Button>
-          <Button 
-            className="w-full bg-blue-500 hover:bg-blue-600 text-white"
-            onClick={handleHirePurchase}
-          >
-            Hire Purchase
+            Proceed to Payment
           </Button>
         </div>
       </div>
