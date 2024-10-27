@@ -60,5 +60,5 @@ export interface SalesContextType {
   calculateTotal: () => number;
   setTotalDiscount: (discountPercentage: number) => void;
   applyProductDiscount: (productId: string, discountPercentage: number) => void;
-  handleCheckout: () => Promise<string>;
+  handleCheckout: () => Promise<void>;
 }

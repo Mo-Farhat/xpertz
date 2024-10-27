@@ -8,13 +8,23 @@ import Numpad from './Numpad';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../ui/tooltip";
 import Select from 'react-select';
 import { useToast } from "../../hooks/use-toast";
+import { addDoc, collection } from 'firebase/firestore';
+import { db } from '../../../firebase';
 
 interface HirePurchasePaymentValidationProps {
   onBack: () => void;
 }
 
 const HirePurchasePaymentValidation: React.FC<HirePurchasePaymentValidationProps> = ({ onBack }) => {
-  const { calculateTotal, handleCheckout, customers, selectedCustomer, setSelectedCustomer } = useSalesContext();
+  const { 
+    calculateTotal, 
+    cart,
+    customers, 
+    selectedCustomer, 
+    setSelectedCustomer,
+    clearCart 
+  } = useSalesContext();
+  
   const [downPayment, setDownPayment] = useState(0);
   const [months, setMonths] = useState(6);
   const [interestRate, setInterestRate] = useState(0);
@@ -46,6 +56,25 @@ const HirePurchasePaymentValidation: React.FC<HirePurchasePaymentValidationProps
     }
   };
 
+  const generatePaymentSchedule = () => {
+    const payments = [];
+    const startDate = new Date();
+    
+    for (let i = 0; i < months; i++) {
+      const dueDate = new Date(startDate);
+      dueDate.setMonth(dueDate.getMonth() + i + 1);
+      
+      payments.push({
+        id: `payment-${i + 1}`,
+        amount: monthlyPayment,
+        dueDate,
+        status: 'pending'
+      });
+    }
+    
+    return payments;
+  };
+
   const handleValidate = async () => {
     if (!selectedCustomer) {
       toast({
@@ -55,19 +84,51 @@ const HirePurchasePaymentValidation: React.FC<HirePurchasePaymentValidationProps
       });
       return;
     }
+
     setIsLoading(true);
     try {
-      await handleCheckout();
+      const startDate = new Date();
+      const endDate = new Date(startDate);
+      endDate.setMonth(endDate.getMonth() + months);
+
+      const agreementData = {
+        customerId: selectedCustomer.id,
+        customerName: selectedCustomer.name,
+        items: cart.map(item => ({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          discount: item.discount || 0
+        })),
+        totalAmount,
+        downPayment,
+        amountFinanced: amountToFinance,
+        interestRate,
+        term: months,
+        monthlyPayment,
+        startDate,
+        endDate,
+        payments: generatePaymentSchedule(),
+        status: 'active',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      const docRef = await addDoc(collection(db, 'hirePurchaseAgreements'), agreementData);
+      
       toast({
         title: "Success",
-        description: "Hire purchase agreement confirmed successfully.",
+        description: `Hire purchase agreement created successfully. Agreement ID: ${docRef.id}`,
       });
-      // Handle successful checkout (e.g., clear cart, navigate to confirmation page, etc.)
+      
+      clearCart();
+      onBack();
     } catch (error) {
-      console.error('Error during checkout:', error);
+      console.error('Error creating hire purchase agreement:', error);
       toast({
         title: "Error",
-        description: "Failed to process the hire purchase agreement. Please try again.",
+        description: "Failed to create hire purchase agreement. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -99,21 +160,6 @@ const HirePurchasePaymentValidation: React.FC<HirePurchasePaymentValidationProps
                 placeholder="Choose a customer"
                 className="react-select-container"
                 classNamePrefix="react-select"
-                styles={{
-                  control: (provided) => ({
-                    ...provided,
-                    borderColor: '#e2e8f0',
-                    boxShadow: 'none',
-                    '&:hover': {
-                      borderColor: '#cbd5e0',
-                    },
-                  }),
-                  option: (provided, state) => ({
-                    ...provided,
-                    backgroundColor: state.isSelected ? '#3182ce' : state.isFocused ? '#edf2f7' : 'white',
-                    color: state.isSelected ? 'white' : '#2d3748',
-                  }),
-                }}
               />
             </CardContent>
           </Card>

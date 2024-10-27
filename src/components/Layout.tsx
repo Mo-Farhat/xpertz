@@ -3,13 +3,11 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Home, Calendar, Users, Briefcase, DollarSign, ShoppingCart, Percent,
   CheckCircle, Clock, Trello, ShoppingBag, Box, Truck, Factory, UserPlus,
-  BarChart, Settings, LogOut, User
+  BarChart, Settings, LogOut, User, CreditCard
 } from 'lucide-react';
-import { useTenant } from '../contexts/TenantContext';
 import { useAuth } from '../contexts/AuthContext';
 import { auth } from '../firebase';
 import { motion, AnimatePresence } from 'framer-motion';
-import '../styles/animations.css';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -37,14 +35,14 @@ const navItems: NavItem[] = [
   { to: "/inventory-supply-chain", icon: <Truck />, text: "Supply Chain" },
   { to: "/manufacturing", icon: <Factory />, text: "Manufacturing" },
   { to: "/hr-management", icon: <UserPlus />, text: "HR Management" },
+  { to: "/hire-purchase", icon: <CreditCard />, text: "Hire Purchase" },
   { to: "/expenses", icon: <DollarSign />, text: "Expenses" },
   { to: "/reports", icon: <BarChart />, text: "Reports" },
-  { to: "/settings", icon: <Settings />, text: "Settings" },
+  { to: "/user-management", icon: <Settings />, text: "Settings" },
   { to: "/profile", icon: <User />, text: "Profile" },
 ];
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { tenant } = useTenant();
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -69,9 +67,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         onMouseLeave={() => setIsExpanded(false)}
       >
         <div className="p-4 flex-shrink-0">
-          {tenant?.logo && (
-            <img src={tenant.logo} alt={`${tenant.name} logo`} className="h-12 mb-4 mx-auto transition-all duration-200 ease-in-out" />
-          )}
           <AnimatePresence>
             {isExpanded && (
               <motion.h1
@@ -81,7 +76,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 transition={{ duration: 0.2 }}
                 className="text-2xl font-bold text-center"
               >
-                {tenant?.name || 'ERP System'}
+                ERP System
               </motion.h1>
             )}
           </AnimatePresence>

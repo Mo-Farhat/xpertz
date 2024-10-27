@@ -1,7 +1,9 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { collection, addDoc, onSnapshot, query, updateDoc, doc, increment } from 'firebase/firestore';
 import { db } from '../../../firebase';
-import { Product, CartItem, SalesContextType, Customer } from './types';
+import { Product, CartItem, SalesContextType, Customer, HirePurchaseAgreement } from './types';
+import { createHirePurchaseAgreement as createAgreement } from '../../services/hirePurchaseService';
+import { useToast } from "../../hooks/use-toast";
 
 const SalesContext = createContext<SalesContextType | undefined>(undefined);
 
@@ -20,9 +22,11 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [discount, setDiscount] = useState<number>(0);
-  const [isHirePurchase, setIsHirePurchase] = useState<boolean>(false);
+  const [isHirePurchase, setIsHirePurchase] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [hirePurchaseItems, setHirePurchaseItems] = useState<CartItem[]>([]);
+  const { toast } = useToast();
 
   useEffect(() => {
     const q = query(collection(db, 'inventory'));
@@ -85,6 +89,9 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const clearCart = () => {
     setCart([]);
+    setHirePurchaseItems([]);
+    setIsHirePurchase(false);
+    setSelectedCustomer(null);
   };
 
   const calculateSubtotal = () => {
@@ -111,9 +118,70 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     ));
   };
 
+  const setHirePurchaseItemsFromCart = () => {
+    console.log('Setting hire purchase items from cart:', cart);
+    setHirePurchaseItems([...cart]);
+    setIsHirePurchase(true);
+  };
+
+  const createHirePurchaseAgreement = async (formData: HirePurchaseAgreement): Promise<string> => {
+    try {
+      console.log('Creating hire purchase agreement with data:', formData);
+      const agreementId = await createAgreement(
+        formData.selectedCustomer.id,
+        formData.selectedCustomer.name,
+        formData.items,
+        formData.totalAmount,
+        formData.downPayment,
+        formData.interestRate,
+        formData.months
+      );
+
+      // Update inventory quantities
+      for (const item of formData.items) {
+        const productRef = doc(db, 'inventory', item.id);
+        await updateDoc(productRef, {
+          quantity: increment(-item.quantity)
+        });
+      }
+
+      // Add the hire purchase transaction to sales collection
+      await addDoc(collection(db, 'sales'), {
+        items: formData.items,
+        customerId: formData.selectedCustomer.id,
+        customerName: formData.selectedCustomer.name,
+        totalAmount: formData.totalAmount,
+        downPayment: formData.downPayment,
+        amountFinanced: formData.amountToFinance,
+        interestRate: formData.interestRate,
+        term: formData.months,
+        monthlyPayment: formData.monthlyPayment,
+        type: 'hire-purchase',
+        agreementId,
+        date: new Date(),
+      });
+
+      toast({
+        title: "Success",
+        description: "Hire purchase agreement created successfully",
+      });
+
+      clearCart();
+      return agreementId;
+    } catch (error) {
+      console.error("Error creating hire purchase agreement: ", error);
+      toast({
+        title: "Error",
+        description: "Failed to create hire purchase agreement",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
   const handleCheckout = async () => {
     try {
-      const saleRef = await addDoc(collection(db, 'sales'), {
+      await addDoc(collection(db, 'sales'), {
         items: cart.map(item => ({
           id: item.id,
           name: item.name,
@@ -125,9 +193,7 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         totalDiscount: discount,
         total: calculateTotal(),
         paymentMethod: paymentMethod,
-        isHirePurchase: isHirePurchase,
-        customerId: selectedCustomer?.id,
-        customerName: selectedCustomer?.name,
+        type: 'regular',
         date: new Date(),
       });
 
@@ -140,13 +206,17 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       clearCart();
       setDiscount(0);
-      setIsHirePurchase(false);
-      setSelectedCustomer(null);
-      return saleRef.id;
+      toast({
+        title: "Success",
+        description: "Sale completed successfully!",
+      });
     } catch (error) {
       console.error("Error processing sale: ", error);
-      setError('Failed to process sale. Please try again.');
-      throw error;
+      toast({
+        title: "Error",
+        description: "Failed to process sale. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -166,6 +236,9 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     customers,
     selectedCustomer,
     setSelectedCustomer,
+    hirePurchaseItems,
+    setHirePurchaseItemsFromCart,
+    createHirePurchaseAgreement,
     addToCart,
     removeFromCart,
     clearCart,

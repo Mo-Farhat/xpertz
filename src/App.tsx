@@ -35,6 +35,7 @@ import SalesOrderManagement from './components/features/SalesOrderManagement'
 import Inventory from './components/features/Inventory'
 import { SalesProvider } from './components/features/PointOfSale/SalesContext'
 import HirePurchasing from './components/features/PointOfSale/HirePurchasing'
+import HirePurchaseAgreements from './components/HirePurchaseAgreements';
 
 const App: React.FC = () => {
   return (
@@ -203,6 +204,14 @@ const App: React.FC = () => {
                 </Layout>
               </ProtectedRoute>
             } />
+            <Route path="/hire-purchase" element={
+              <ProtectedRoute>
+                <Layout>
+                  <HirePurchaseAgreements />
+                </Layout>
+              </ProtectedRoute>
+            } />
+
             <Route path="/hr-management" element={
               <ProtectedRoute>
                 <Layout>

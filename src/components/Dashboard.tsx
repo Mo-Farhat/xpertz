@@ -4,13 +4,15 @@ import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { DollarSign, Package, ShoppingCart, Users, Settings } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import WidgetGrid from './dashboard/WidgetGrid.tsx';
+import WidgetGrid from './dashboard/WidgetGrid';
 import ChartWidget from './dashboard/ChartWidget';
 import { WidgetData, AvailableWidget, SalesData, ProductData, InventoryData } from './dashboard/types';
 import { loadWidgetData, fetchSalesData, fetchTopProducts, fetchInventoryData } from './dashboard/dataFetchers';
+import { useToast } from "../components/hooks/use-toast";
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [widgets, setWidgets] = useState<WidgetData[]>([]);
   const [isCustomizing, setIsCustomizing] = useState(false);
   const [selectedWidgets, setSelectedWidgets] = useState<string[]>([]);
@@ -29,15 +31,51 @@ const Dashboard: React.FC = () => {
     { id: 'inventoryDistribution', title: 'Inventory Distribution', description: 'Displays the distribution of inventory across categories' },
   ];
 
+  // Load user preferences from Firestore when component mounts
+  useEffect(() => {
+    const loadUserPreferences = async () => {
+      if (user) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            const savedWidgets = userData.selectedWidgets || [];
+            setSelectedWidgets(savedWidgets);
+            
+            // Also update localStorage for redundancy
+            localStorage.setItem(`selectedWidgets_${user.uid}`, JSON.stringify(savedWidgets));
+          } else {
+            // If no preferences exist in Firestore, check localStorage as fallback
+            const storedWidgets = localStorage.getItem(`selectedWidgets_${user.uid}`);
+            if (storedWidgets) {
+              const parsedWidgets = JSON.parse(storedWidgets);
+              setSelectedWidgets(parsedWidgets);
+              // Save to Firestore for future sessions
+              await updateDoc(doc(db, 'users', user.uid), {
+                selectedWidgets: parsedWidgets,
+              });
+            }
+          }
+        } catch (err) {
+          console.error("Error loading user preferences:", err);
+          toast({
+            title: "Error",
+            description: "Failed to load dashboard preferences",
+            variant: "destructive",
+          });
+        }
+      }
+    };
+
+    loadUserPreferences();
+  }, [user, toast]);
+
+  // Fetch dashboard data when selectedWidgets changes
   useEffect(() => {
     const fetchDashboardData = async () => {
       if (user) {
         try {
-          const storedWidgets = localStorage.getItem(`selectedWidgets_${user.uid}`);
-          const initialSelectedWidgets = storedWidgets ? JSON.parse(storedWidgets) : [];
-          setSelectedWidgets(initialSelectedWidgets);
-
-          const widgetData = await loadWidgetData(initialSelectedWidgets);
+          const widgetData = await loadWidgetData(selectedWidgets);
           setWidgets(widgetData);
 
           const sales = await fetchSalesData();
@@ -50,26 +88,41 @@ const Dashboard: React.FC = () => {
           setInventoryData(inventory);
         } catch (err) {
           console.error("Error fetching dashboard data:", err);
-          setError("Failed to load dashboard data. Please try again later.");
+          toast({
+            title: "Error",
+            description: "Failed to load dashboard data",
+            variant: "destructive",
+          });
         }
       }
     };
 
     fetchDashboardData();
-  }, [user]);
+  }, [user, selectedWidgets, toast]);
 
-  const handleWidgetToggle = (widgetId: string) => {
-    setSelectedWidgets(prev => {
-      const updatedWidgets = prev.includes(widgetId)
-        ? prev.filter(id => id !== widgetId)
-        : [...prev, widgetId];
+  const handleWidgetToggle = async (widgetId: string) => {
+    try {
+      const updatedWidgets = selectedWidgets.includes(widgetId)
+        ? selectedWidgets.filter(id => id !== widgetId)
+        : [...selectedWidgets, widgetId];
+      
+      setSelectedWidgets(updatedWidgets);
       
       if (user) {
+        // Update both Firestore and localStorage
+        await updateDoc(doc(db, 'users', user.uid), {
+          selectedWidgets: updatedWidgets,
+        });
         localStorage.setItem(`selectedWidgets_${user.uid}`, JSON.stringify(updatedWidgets));
       }
-      
-      return updatedWidgets;
-    });
+    } catch (error) {
+      console.error("Error toggling widget:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update widget selection",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSaveCustomization = async () => {
@@ -78,12 +131,20 @@ const Dashboard: React.FC = () => {
         await updateDoc(doc(db, 'users', user.uid), {
           selectedWidgets: selectedWidgets,
         });
+        localStorage.setItem(`selectedWidgets_${user.uid}`, JSON.stringify(selectedWidgets));
         setIsCustomizing(false);
-        const widgetData = await loadWidgetData(selectedWidgets);
-        setWidgets(widgetData);
+        
+        toast({
+          title: "Success",
+          description: "Dashboard preferences saved successfully",
+        });
       } catch (error) {
-        console.error("Error saving widget customization: ", error);
-        setError("Failed to save customization. Please try again.");
+        console.error("Error saving widget customization:", error);
+        toast({
+          title: "Error",
+          description: "Failed to save customization",
+          variant: "destructive",
+        });
       }
     }
   };
