@@ -7,6 +7,9 @@ export interface Product {
   lowStockThreshold: number;
   imageUrl?: string;
   barcode?: string;
+  manufacturer?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface CartItem extends Product {
@@ -45,14 +48,6 @@ export interface SalesContextType {
   searchTerm: string;
   setSearchTerm: React.Dispatch<React.SetStateAction<string>>;
   discount: number;
-  isHirePurchase: boolean;
-  setIsHirePurchase: React.Dispatch<React.SetStateAction<boolean>>;
-  customers: Customer[];
-  selectedCustomer: Customer | null;
-  setSelectedCustomer: React.Dispatch<React.SetStateAction<Customer | null>>;
-  hirePurchaseItems: CartItem[];
-  setHirePurchaseItemsFromCart: () => void;
-  createHirePurchaseAgreement: (formData: HirePurchaseAgreement) => Promise<string>;
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
   clearCart: () => void;

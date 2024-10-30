@@ -1,16 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-
-interface UserData extends FirebaseUser {
-  role: 'admin' | 'user';
-}
-
-interface AuthContextType {
-  user: UserData | null;
-  loading: boolean;
-}
+import { AuthContextType, UserData } from '../types/auth';
+import { useToast } from "../components/hooks/use-toast";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -22,30 +15,67 @@ export const useAuth = () => {
   return context;
 };
 
-export const AuthProvider: React.FC = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+  const [isIntentionalLogout, setIsIntentionalLogout] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-        const userData = userDoc.data();
-        setUser({ ...firebaseUser, role: userData?.role || 'user' } as UserData);
-      } else {
+      try {
+        if (firebaseUser) {
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setUser({
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              role: userData.role || 'user',
+              createdAt: userData.createdAt?.toDate() || new Date(),
+            });
+          } else {
+            setUser(null);
+          }
+          setIsIntentionalLogout(false);
+        } else {
+          setUser(null);
+          // Only show error toast if it's not an intentional logout
+          if (!isIntentionalLogout) {
+            toast({
+              title: "Error",
+              description: "Failed to load user data",
+              variant: "destructive",
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        if (!isIntentionalLogout) {
+          toast({
+            title: "Error",
+            description: "Failed to load user data",
+            variant: "destructive",
+          });
+        }
         setUser(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [toast, isIntentionalLogout]);
+
+  const value = {
+    user,
+    loading,
+    setIsIntentionalLogout, // Add this to the context value
+  };
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
 };
-
-export default AuthProvider;

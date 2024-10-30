@@ -16,6 +16,8 @@ const ProductList: React.FC<ProductListProps> = ({ products, onUpdate, onDelete,
         <tr className="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
           <th className="py-3 px-6 text-left">Image</th>
           <th className="py-3 px-6 text-left">Name</th>
+          <th className="py-3 px-6 text-left">Barcode</th>
+          <th className="py-3 px-6 text-left">Manufacturer</th>
           <th className="py-3 px-6 text-right">Price</th>
           <th className="py-3 px-6 text-right">Stock</th>
           <th className="py-3 px-6 text-center">Actions</th>
@@ -35,6 +37,8 @@ const ProductList: React.FC<ProductListProps> = ({ products, onUpdate, onDelete,
               )}
               {product.name}
             </td>
+            <td className="py-3 px-6 text-left">{product.barcode || 'N/A'}</td>
+            <td className="py-3 px-6 text-left">{product.manufacturer || 'N/A'}</td>
             <td className="py-3 px-6 text-right">${product.price.toFixed(2)}</td>
             <td className="py-3 px-6 text-right">{product.stock}</td>
             <td className="py-3 px-6 text-center">

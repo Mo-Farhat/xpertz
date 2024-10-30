@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Users, DollarSign, Calendar, UserPlus, BarChart2, Settings } from 'lucide-react';
+import { Users, DollarSign, Calendar, UserPlus, BarChart2, Settings, Wallet } from 'lucide-react';
 import EmployeeDatabase from './HRManagement/EmployeeDatabase';
 import PayrollManagement from './HRManagement/PayrollManagement';
 import AttendanceLeaveManagement from './HRManagement/AttendanceLeaveManagement';
 import RecruitmentOnboarding from './HRManagement/RecruitmentOnboarding';
 import PerformanceEvaluation from './HRManagement/PerformanceEvaluation';
 import EmployeeSelfService from './HRManagement/EmployeeSelfService';
+import LoanManagement from './HRManagement/LoanManagement';
 
 const HRManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState('employeeDatabase');
@@ -17,6 +18,7 @@ const HRManagement: React.FC = () => {
     { id: 'recruitmentOnboarding', name: 'Recruitment & Onboarding', icon: <UserPlus /> },
     { id: 'performanceEvaluation', name: 'Performance Evaluation', icon: <BarChart2 /> },
     { id: 'employeeSelfService', name: 'Employee Self-Service', icon: <Settings /> },
+    { id: 'loanManagement', name: 'Loan Management', icon: <Wallet /> },
   ];
 
   const renderComponent = () => {
@@ -33,6 +35,8 @@ const HRManagement: React.FC = () => {
         return <PerformanceEvaluation />;
       case 'employeeSelfService':
         return <EmployeeSelfService />;
+      case 'loanManagement':
+        return <LoanManagement />;
       default:
         return <EmployeeDatabase />;
     }

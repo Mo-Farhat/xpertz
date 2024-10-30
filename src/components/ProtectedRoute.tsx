@@ -1,42 +1,53 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useTenant } from '../contexts/TenantContext';
+import { useRolePermissions } from '../components/hooks/useRolePermission';
+import { Loader2 } from 'lucide-react';
+import { UserRole } from '../types/auth';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredPlan?: 'basic' | 'professional' | 'enterprise';
-  requiredRole?: 'admin' | 'user';
+  requiredRole?: UserRole | UserRole[];
+  feature?: 'dashboard' | 'finance' | 'inventory' | 'sales' | 'reports' | 'hirePurchase' | 'manufacturing' | 'expenses';
 }
 
-const planHierarchy = {
-  basic: 0,
-  professional: 1,
-  enterprise: 2,
-};
-
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredPlan, requiredRole }) => {
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole, feature }) => {
   const { user, loading } = useAuth();
-  const { subscriptionPlan } = useTenant();
+  const permissions = useRolePermissions();
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
   }
 
   if (!user) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/login" replace />;
   }
 
-  if (requiredRole && user.role !== requiredRole) {
-    return <Navigate to="/dashboard" />;
+  if (requiredRole) {
+    const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+    if (!roles.includes(user.role)) {
+      return <Navigate to="/dashboard" replace />;
+    }
   }
 
-  if (requiredPlan && subscriptionPlan) {
-    const userPlanLevel = planHierarchy[subscriptionPlan as keyof typeof planHierarchy];
-    const requiredPlanLevel = planHierarchy[requiredPlan];
+  if (feature) {
+    const hasAccess = {
+      dashboard: permissions.canAccessDashboard(),
+      finance: permissions.canAccessFinance(),
+      inventory: permissions.canAccessInventory(),
+      sales: permissions.canAccessSales(),
+      reports: permissions.canAccessReports(),
+      hirePurchase: permissions.canAccessHirePurchase(),
+      manufacturing: permissions.canAccessManufacturing(),
+      expenses: permissions.canAccessExpenses(),
+    }[feature];
 
-    if (userPlanLevel < requiredPlanLevel) {
-      return <Navigate to="/settings" />;
+    if (!hasAccess) {
+      return <Navigate to="/dashboard" replace />;
     }
   }
 
