@@ -82,7 +82,7 @@ const SalesTransactionManagement: React.FC = () => {
           products={products}
           onUpdate={() => {}}
           onDelete={() => {}}
-          onAddToCart={(product: Product) => addToCart(product)}
+          onAddToCart={(product: Product) => addToCart(product)} // This is your add to cart function
         />
       </div>
       <div className="bg-white rounded-lg shadow-md p-4">
