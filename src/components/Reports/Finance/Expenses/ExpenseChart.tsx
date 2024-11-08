@@ -1,26 +1,15 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../../components/ui/card";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell
-} from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ExpenseSummaryProps } from './types';
 
-interface ExpenseChartProps {
-  chartData: Array<{
-    category: string;
-    amount: number;
-    percentage: number;
-  }>;
-  colors: string[];
-}
+const ExpenseChart: React.FC<ExpenseSummaryProps> = ({ data }) => {
+  const chartData = Object.entries(data.expensesByCategory).map(([category, amount]) => ({
+    category,
+    amount,
+    previousAmount: data.previousPeriodExpenses[category] || 0
+  }));
 
-const ExpenseChart: React.FC<ExpenseChartProps> = ({ chartData, colors }) => {
   return (
     <Card>
       <CardHeader>
@@ -34,11 +23,8 @@ const ExpenseChart: React.FC<ExpenseChartProps> = ({ chartData, colors }) => {
               <XAxis dataKey="category" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="amount">
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
-                ))}
-              </Bar>
+              <Bar dataKey="amount" fill="#0088FE" name="Current Period" />
+              <Bar dataKey="previousAmount" fill="#82ca9d" name="Previous Period" />
             </BarChart>
           </ResponsiveContainer>
         </div>

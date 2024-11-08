@@ -1,9 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
-import { TenantProvider } from './contexts/TenantContext';
 import { Toaster } from "./components/ui/toaster";
-import Auth from './components/Auth';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -12,7 +10,6 @@ import Features from './components/Features';
 import FeatureManagement from './components/FeatureManagement';
 import UserProfile from './components/UserProfile';
 import UserManagement from './components/UserManagement';
-import ForgotPassword from './components/ForgotPassword';
 import Reports from './components/Reports';
 import Calendar from './components/features/Calendar';
 import CRM from './components/features/CRM';
@@ -34,30 +31,29 @@ import Inventory from './components/features/Inventory';
 import { SalesProvider } from './components/features/PointOfSale/SalesContext';
 import HirePurchasing from './components/features/PointOfSale/HirePurchasing';
 import HirePurchaseAgreements from './components/HirePurchaseAgreements';
+import Auth from './components/Auth';
 
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <TenantProvider>
-        <Router>
-          <Routes>
-            <Route path="/login" element={<Auth />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            
-            <Route path="/features" element={
-              <ProtectedRoute>
-                <Features />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <Layout>
-                  <Dashboard />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            
+      <Router>
+        <Routes>
+          {/* Public route for login */}
+          <Route path="/login" element={<Auth />} />
+          
+          <Route path="/features" element={
+            <ProtectedRoute>
+              <Features />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <Layout>
+                <Dashboard />
+              </Layout>
+            </ProtectedRoute>
+          } />
             <Route path="/contacts" element={
               <ProtectedRoute>
                 <Layout>
@@ -255,13 +251,15 @@ const App: React.FC = () => {
               </ProtectedRoute>
             } />
             
-            <Route path="/" element={<Navigate to="/login" replace />} />
-          </Routes>
-          <Toaster />
-        </Router>
-      </TenantProvider>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          
+          {/* Catch all unmatched routes and redirect to login */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+        <Toaster />
+      </Router>
     </AuthProvider>
   );
-}
+};
 
 export default App;

@@ -1,79 +1,70 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, getDocs, where, Timestamp } from 'firebase/firestore';
-import { db } from '../../../firebase';
-import { Download, FileText } from 'lucide-react';
-
-interface FinancialData {
-  revenue: number;
-  expenses: number;
-  assets: number;
-  liabilities: number;
-}
+import { Download } from 'lucide-react';
+import { useAuth } from '../../../contexts/AuthContext';
+import { useToast } from '../../hooks/use-toast';
+import { fetchFinancialData, FinancialData } from '../../services/financialReportingService';
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
+import { Button } from "../../../components/ui/button";
 
 const FinancialReporting: React.FC = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [financialData, setFinancialData] = useState<FinancialData>({
     revenue: 0,
     expenses: 0,
     assets: 0,
     liabilities: 0,
+    cashFromOperations: 0,
+    cashFromInvesting: 0,
+    cashFromFinancing: 0,
+    netCashFlow: 0
   });
   const [reportType, setReportType] = useState<'income' | 'balance' | 'cashflow'>('income');
   const [startDate, setStartDate] = useState(new Date(new Date().getFullYear(), 0, 1));
   const [endDate, setEndDate] = useState(new Date());
 
   useEffect(() => {
-    fetchFinancialData();
-  }, [reportType, startDate, endDate]);
+    const loadFinancialData = async () => {
+      if (!user?.uid) return;
 
-  const fetchFinancialData = async () => {
-    try {
-      const revenueQuery = query(
-        collection(db, 'transactions'),
-        where('type', '==', 'income'),
-        where('date', '>=', Timestamp.fromDate(startDate)),
-        where('date', '<=', Timestamp.fromDate(endDate))
-      );
-      const expensesQuery = query(
-        collection(db, 'transactions'),
-        where('type', '==', 'expense'),
-        where('date', '>=', Timestamp.fromDate(startDate)),
-        where('date', '<=', Timestamp.fromDate(endDate))
-      );
-      const assetsQuery = query(collection(db, 'assets'));
-      const liabilitiesQuery = query(collection(db, 'liabilities'));
+      try {
+        const data = await fetchFinancialData(user.uid, startDate, endDate);
+        setFinancialData(data);
+      } catch (error) {
+        console.error('Error loading financial data:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load financial data",
+          variant: "destructive",
+        });
+      }
+    };
 
-      const [revenueSnapshot, expensesSnapshot, assetsSnapshot, liabilitiesSnapshot] = await Promise.all([
-        getDocs(revenueQuery),
-        getDocs(expensesQuery),
-        getDocs(assetsQuery),
-        getDocs(liabilitiesQuery)
-      ]);
-
-      const revenue = revenueSnapshot.docs.reduce((sum, doc) => sum + doc.data().amount, 0);
-      const expenses = expensesSnapshot.docs.reduce((sum, doc) => sum + doc.data().amount, 0);
-      const assets = assetsSnapshot.docs.reduce((sum, doc) => sum + doc.data().currentValue, 0);
-      const liabilities = liabilitiesSnapshot.docs.reduce((sum, doc) => sum + doc.data().amount, 0);
-
-      setFinancialData({ revenue, expenses, assets, liabilities });
-    } catch (error) {
-      console.error('Error fetching financial data:', error);
-    }
-  };
+    loadFinancialData();
+  }, [user, reportType, startDate, endDate, toast]);
 
   const generateReport = () => {
-    let report = '';
     switch (reportType) {
       case 'income':
-        report = `Income Statement\n\nRevenue: $${financialData.revenue.toFixed(2)}\nExpenses: $${financialData.expenses.toFixed(2)}\nNet Income: $${(financialData.revenue - financialData.expenses).toFixed(2)}`;
-        break;
+        return `Income Statement\n
+Revenue: $${financialData.revenue.toFixed(2)}
+Expenses: $${financialData.expenses.toFixed(2)}
+Net Income: $${(financialData.revenue - financialData.expenses).toFixed(2)}`;
+
       case 'balance':
-        report = `Balance Sheet\n\nAssets: $${financialData.assets.toFixed(2)}\nLiabilities: $${financialData.liabilities.toFixed(2)}\nEquity: $${(financialData.assets - financialData.liabilities).toFixed(2)}`;
-        break;
+        return `Balance Sheet\n
+Assets: $${financialData.assets.toFixed(2)}
+Liabilities: $${financialData.liabilities.toFixed(2)}
+Equity: $${(financialData.assets - financialData.liabilities).toFixed(2)}`;
+
       case 'cashflow':
-        report = `Cash Flow Statement\n\nCash from Operations: $${(financialData.revenue - financialData.expenses).toFixed(2)}\nCash from Investing: $0.00\nCash from Financing: $0.00\nNet Cash Flow: $${(financialData.revenue - financialData.expenses).toFixed(2)}`;
-        break;
+        return `Cash Flow Statement\n
+Cash from Operations: $${financialData.cashFromOperations.toFixed(2)}
+Cash from Investing: $${financialData.cashFromInvesting.toFixed(2)}
+Cash from Financing: $${financialData.cashFromFinancing.toFixed(2)}
+Net Cash Flow: $${financialData.netCashFlow.toFixed(2)}`;
     }
-    return report;
   };
 
   const handleExport = () => {
@@ -92,46 +83,63 @@ const FinancialReporting: React.FC = () => {
   };
 
   return (
-    <div className="p-4">
-      <h2 className="text-2xl font-bold mb-4">Financial Reporting</h2>
-      <div className="mb-4">
-        <select
-          value={reportType}
-          onChange={(e) => setReportType(e.target.value as 'income' | 'balance' | 'cashflow')}
-          className="p-2 border rounded mr-2"
-        >
-          <option value="income">Income Statement</option>
-          <option value="balance">Balance Sheet</option>
-          <option value="cashflow">Cash Flow Statement</option>
-        </select>
-        <input
-          type="date"
-          value={startDate.toISOString().split('T')[0]}
-          onChange={(e) => setStartDate(new Date(e.target.value))}
-          className="p-2 border rounded mr-2"
-        />
-        <input
-          type="date"
-          value={endDate.toISOString().split('T')[0]}
-          onChange={(e) => setEndDate(new Date(e.target.value))}
-          className="p-2 border rounded mr-2"
-        />
-        <button
-          onClick={handleExport}
-          className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center"
-        >
-          <Download size={18} className="mr-2" />
-          Export Report
-        </button>
-      </div>
-      <div className="bg-white p-4 rounded-lg shadow">
-        <h3 className="text-xl font-semibold mb-2">
-          {reportType === 'income' ? 'Income Statement' :
-           reportType === 'balance' ? 'Balance Sheet' :
-           'Cash Flow Statement'}
-        </h3>
-        <pre className="whitespace-pre-wrap">{generateReport()}</pre>
-      </div>
+    <div className="p-4 space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Financial Reporting</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col md:flex-row gap-4 mb-4">
+            <Select value={reportType} onValueChange={(value: 'income' | 'balance' | 'cashflow') => setReportType(value)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select report type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="income">Income Statement</SelectItem>
+                <SelectItem value="balance">Balance Sheet</SelectItem>
+                <SelectItem value="cashflow">Cash Flow Statement</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <input
+              type="date"
+              value={startDate.toISOString().split('T')[0]}
+              onChange={(e) => setStartDate(new Date(e.target.value))}
+              className="p-2 border rounded"
+            />
+            <input
+              type="date"
+              value={endDate.toISOString().split('T')[0]}
+              onChange={(e) => setEndDate(new Date(e.target.value))}
+              className="p-2 border rounded"
+            />
+            
+            <Button
+              onClick={handleExport}
+              className="flex items-center gap-2"
+              variant="outline"
+            >
+              <Download className="h-4 w-4" />
+              Export Report
+            </Button>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                {reportType === 'income' ? 'Income Statement' :
+                 reportType === 'balance' ? 'Balance Sheet' :
+                 'Cash Flow Statement'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <pre className="whitespace-pre-wrap bg-gray-50 p-4 rounded-lg">
+                {generateReport()}
+              </pre>
+            </CardContent>
+          </Card>
+        </CardContent>
+      </Card>
     </div>
   );
 };

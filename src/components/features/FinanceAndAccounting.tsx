@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Book, DollarSign, CreditCard, FileText, BarChart2, Briefcase, Percent, PieChart } from 'lucide-react';
 import GeneralLedger from './FinanceAndAccounting/GeneralLedger';
 import AccountsPayable from './FinanceAndAccounting/AccountsPayable';
-import AccountsReceivable from './FinanceAndAccounting/AccountsReceivable';
+import AccountsReceivable from './FinanceAndAccounting/AccountsRecievable/AccountsReceivable';
 import ExpenseManagement from './FinanceAndAccounting/ExpenseManagement';
 import AssetManagement from './FinanceAndAccounting/AssetManagement';
 import BankReconciliation from './FinanceAndAccounting/BankReconciliation';

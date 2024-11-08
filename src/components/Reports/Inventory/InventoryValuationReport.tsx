@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, getDocs } from 'firebase/firestore';
 import { db } from '../../../firebase';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
-import { Button } from '../../ui/button';
-import { Download } from 'lucide-react';
-
-type CostMethod = 'FIFO' | 'LIFO' | 'WAC';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useToast } from '../../hooks/use-toast';
 
 interface InventoryItem {
   id: string;
@@ -15,106 +13,135 @@ interface InventoryItem {
   quantity: number;
   costPrice: number;
   sellingPrice: number;
-  lastRestockDate: Date;
+  category: string;
 }
 
-const InventoryValuationReport = () => {
+const InventoryValuation = () => {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [costMethod, setCostMethod] = useState<CostMethod>('WAC');
-  const [loading, setLoading] = useState(true);
+  const [valuationMethod, setValuationMethod] = useState<'fifo' | 'lifo' | 'average'>('average');
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchInventory = async () => {
       try {
-        const inventoryRef = collection(db, 'inventory');
-        const querySnapshot = await getDocs(query(inventoryRef));
-        
+        const querySnapshot = await getDocs(query(collection(db, 'inventory')));
         const items = querySnapshot.docs.map(doc => ({
           id: doc.id,
-          name: doc.data().name,
-          quantity: doc.data().quantity,
-          costPrice: doc.data().costPrice || doc.data().price * 0.7, // Fallback if costPrice not set
-          sellingPrice: doc.data().price,
-          lastRestockDate: doc.data().lastRestockDate?.toDate() || new Date()
-        }));
-        
+          ...doc.data(),
+          costPrice: doc.data().price * 0.7, // Assuming 30% markup
+          sellingPrice: doc.data().price
+        })) as InventoryItem[];
         setInventory(items);
       } catch (error) {
-        console.error('Error fetching inventory:', error);
-      } finally {
-        setLoading(false);
+        toast({
+          title: "Error",
+          description: "Failed to fetch inventory data",
+          variant: "destructive",
+        });
       }
     };
 
     fetchInventory();
-  }, []);
+  }, [toast]);
 
-  const calculateItemValue = (item: InventoryItem) => {
-    switch (costMethod) {
-      case 'FIFO':
+  const calculateValue = (item: InventoryItem) => {
+    switch (valuationMethod) {
+      case 'fifo':
         return item.quantity * item.costPrice;
-      case 'LIFO':
+      case 'lifo':
         return item.quantity * item.costPrice;
-      case 'WAC':
+      case 'average':
         return item.quantity * ((item.costPrice + item.sellingPrice) / 2);
       default:
         return 0;
     }
   };
 
-  const totalValue = inventory.reduce((sum, item) => sum + calculateItemValue(item), 0);
-
-  const handleExport = () => {
-    const csvContent = [
-      ['Item Name', 'Quantity', 'Cost Price', 'Selling Price', 'Total Value'],
-      ...inventory.map(item => [
-        item.name,
-        item.quantity.toString(),
-        item.costPrice.toFixed(2),
-        item.sellingPrice.toFixed(2),
-        calculateItemValue(item).toFixed(2)
-      ])
-    ].map(row => row.join(',')).join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `inventory_valuation_${costMethod}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  const totalValue = inventory.reduce((sum, item) => sum + calculateValue(item), 0);
+  
+  const chartData = inventory.map(item => ({
+    name: item.name,
+    value: calculateValue(item),
+    quantity: item.quantity
+  }));
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle>Inventory Valuation Report</CardTitle>
-          <div className="flex gap-4">
-            <Select value={costMethod} onValueChange={(value: CostMethod) => setCostMethod(value)}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select cost method" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="FIFO">FIFO</SelectItem>
-                <SelectItem value="LIFO">LIFO</SelectItem>
-                <SelectItem value="WAC">Weighted Average Cost</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button onClick={handleExport} className="flex items-center gap-2">
-              <Download className="h-4 w-4" />
-              Export CSV
-            </Button>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h3 className="text-2xl font-semibold">Inventory Valuation</h3>
+        <Select value={valuationMethod} onValueChange={(value: any) => setValuationMethod(value)}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Valuation method" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="fifo">FIFO</SelectItem>
+            <SelectItem value="lifo">LIFO</SelectItem>
+            <SelectItem value="average">Average Cost</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Total Value</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">${totalValue.toFixed(2)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Total Items</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">
+              {inventory.reduce((sum, item) => sum + item.quantity, 0)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Average Item Value</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">
+              ${(totalValue / inventory.length || 0).toFixed(2)}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Value Distribution</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[400px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="value" fill="#3b82f6" name="Value ($)" />
+                <Bar dataKey="quantity" fill="#10b981" name="Quantity" />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="rounded-md border">
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Detailed Valuation</CardTitle>
+        </CardHeader>
+        <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Item Name</TableHead>
+                <TableHead>Item</TableHead>
                 <TableHead className="text-right">Quantity</TableHead>
                 <TableHead className="text-right">Cost Price</TableHead>
                 <TableHead className="text-right">Selling Price</TableHead>
@@ -128,19 +155,15 @@ const InventoryValuationReport = () => {
                   <TableCell className="text-right">{item.quantity}</TableCell>
                   <TableCell className="text-right">${item.costPrice.toFixed(2)}</TableCell>
                   <TableCell className="text-right">${item.sellingPrice.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">${calculateItemValue(item).toFixed(2)}</TableCell>
+                  <TableCell className="text-right">${calculateValue(item).toFixed(2)}</TableCell>
                 </TableRow>
               ))}
-              <TableRow className="font-bold">
-                <TableCell colSpan={4}>Total Inventory Value</TableCell>
-                <TableCell className="text-right">${totalValue.toFixed(2)}</TableCell>
-              </TableRow>
             </TableBody>
           </Table>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
-export default InventoryValuationReport;
+export default InventoryValuation;

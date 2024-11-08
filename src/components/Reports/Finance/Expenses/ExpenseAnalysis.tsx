@@ -1,130 +1,119 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, getDocs, where, Timestamp } from 'firebase/firestore';
-import { db } from '../../../../firebase';
-import { useTenant } from '../../../../contexts/TenantContext';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../../components/ui/select";
+import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { db } from '../../../../firebase';
 import { useToast } from "../../../hooks/use-toast";
-import { ExpenseData, ExpenseSummary } from './types';
+import { ExpenseAnalysisData } from './types';
 import ExpenseSummaryMetrics from './ExpenseSummaryMetrics';
 import ExpenseChart from './ExpenseChart';
 import CategoryDetails from './CategoryDetails';
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
-
 const ExpenseAnalysis = () => {
-  const { tenant } = useTenant();
   const { toast } = useToast();
   const [timeRange, setTimeRange] = useState<'month' | 'quarter' | 'year'>('month');
-  const [expenseData, setExpenseData] = useState<ExpenseSummary>({
+  const [expenseData, setExpenseData] = useState<ExpenseAnalysisData>({
     totalExpenses: 0,
     expensesByCategory: {},
     previousPeriodExpenses: {},
-    percentageOfRevenue: {},
-    changeFromPrevious: {}
+    changeFromPrevious: {},
+    monthlyTrends: {}
   });
 
   useEffect(() => {
     const fetchExpenseData = async () => {
-      if (!tenant?.id) return;
-
       try {
         const now = new Date();
-        let currentStartDate = new Date();
+        let startDate = new Date();
         let previousStartDate = new Date();
 
         switch (timeRange) {
           case 'month':
-            currentStartDate.setMonth(now.getMonth() - 1);
+            startDate.setMonth(now.getMonth() - 1);
             previousStartDate.setMonth(now.getMonth() - 2);
             break;
           case 'quarter':
-            currentStartDate.setMonth(now.getMonth() - 3);
+            startDate.setMonth(now.getMonth() - 3);
             previousStartDate.setMonth(now.getMonth() - 6);
             break;
           case 'year':
-            currentStartDate.setFullYear(now.getFullYear() - 1);
+            startDate.setFullYear(now.getFullYear() - 1);
             previousStartDate.setFullYear(now.getFullYear() - 2);
             break;
         }
 
         const [currentExpenses, previousExpenses] = await Promise.all([
           getDocs(query(
-            collection(db, `tenants/${tenant.id}/expenses`),
-            where('date', '>=', Timestamp.fromDate(currentStartDate)),
+            collection(db, 'expenses'),
+            where('date', '>=', Timestamp.fromDate(startDate)),
             where('date', '<=', Timestamp.fromDate(now))
           )),
           getDocs(query(
-            collection(db, `tenants/${tenant.id}/expenses`),
+            collection(db, 'expenses'),
             where('date', '>=', Timestamp.fromDate(previousStartDate)),
-            where('date', '<', Timestamp.fromDate(currentStartDate))
+            where('date', '<', Timestamp.fromDate(startDate))
           ))
         ]);
 
         const currentPeriodData = currentExpenses.docs.map(doc => ({
+          ...doc.data(),
           id: doc.id,
-          ...doc.data()
-        })) as ExpenseData[];
+          date: doc.data().date.toDate()
+        }));
 
         const previousPeriodData = previousExpenses.docs.map(doc => ({
+          ...doc.data(),
           id: doc.id,
-          ...doc.data()
-        })) as ExpenseData[];
+          date: doc.data().date.toDate()
+        }));
 
-        const summary = calculateExpenseSummary(currentPeriodData, previousPeriodData);
+        // Calculate summaries
+        const summary: ExpenseAnalysisData = {
+          totalExpenses: currentPeriodData.reduce((sum, expense) => sum + expense.amount, 0),
+          expensesByCategory: {},
+          previousPeriodExpenses: {},
+          changeFromPrevious: {},
+          monthlyTrends: {}
+        };
+
+        // Calculate expenses by category
+        currentPeriodData.forEach(expense => {
+          summary.expensesByCategory[expense.category] = 
+            (summary.expensesByCategory[expense.category] || 0) + expense.amount;
+        });
+
+        // Calculate previous period expenses
+        previousPeriodData.forEach(expense => {
+          summary.previousPeriodExpenses[expense.category] = 
+            (summary.previousPeriodExpenses[expense.category] || 0) + expense.amount;
+        });
+
+        // Calculate changes from previous period
+        Object.keys(summary.expensesByCategory).forEach(category => {
+          const currentAmount = summary.expensesByCategory[category] || 0;
+          const previousAmount = summary.previousPeriodExpenses[category] || 0;
+          const change = currentAmount - previousAmount;
+          const percentage = previousAmount ? (change / previousAmount) * 100 : 100;
+
+          summary.changeFromPrevious[category] = {
+            amount: change,
+            percentage: percentage
+          };
+        });
+
         setExpenseData(summary);
       } catch (error) {
         console.error('Error fetching expense data:', error);
         toast({
           title: "Error",
-          description: "Failed to load expense data",
+          description: "Failed to load expense analysis data",
           variant: "destructive",
         });
       }
     };
 
     fetchExpenseData();
-  }, [tenant, timeRange, toast]);
-
-  const calculateExpenseSummary = (currentData: ExpenseData[], previousData: ExpenseData[]): ExpenseSummary => {
-    const summary: ExpenseSummary = {
-      totalExpenses: currentData.reduce((sum, expense) => sum + expense.amount, 0),
-      expensesByCategory: {},
-      previousPeriodExpenses: {},
-      percentageOfRevenue: {},
-      changeFromPrevious: {}
-    };
-
-    // Calculate current period expenses by category
-    currentData.forEach(expense => {
-      summary.expensesByCategory[expense.category] = (summary.expensesByCategory[expense.category] || 0) + expense.amount;
-    });
-
-    // Calculate previous period expenses by category
-    previousData.forEach(expense => {
-      summary.previousPeriodExpenses[expense.category] = (summary.previousPeriodExpenses[expense.category] || 0) + expense.amount;
-    });
-
-    // Calculate changes from previous period
-    Object.keys(summary.expensesByCategory).forEach(category => {
-      const currentAmount = summary.expensesByCategory[category] || 0;
-      const previousAmount = summary.previousPeriodExpenses[category] || 0;
-      const change = currentAmount - previousAmount;
-      const percentage = previousAmount ? (change / previousAmount) * 100 : 100;
-
-      summary.changeFromPrevious[category] = {
-        amount: change,
-        percentage: percentage
-      };
-    });
-
-    return summary;
-  };
-
-  const chartData = Object.entries(expenseData.expensesByCategory).map(([category, amount]) => ({
-    category,
-    amount,
-    percentage: (amount / expenseData.totalExpenses) * 100
-  }));
+  }, [timeRange, toast]);
 
   return (
     <div className="space-y-6">
@@ -145,11 +134,10 @@ const ExpenseAnalysis = () => {
       <ExpenseSummaryMetrics data={expenseData} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <ExpenseChart chartData={chartData} colors={COLORS} />
+        <ExpenseChart data={expenseData} />
         <CategoryDetails 
           categories={expenseData.expensesByCategory}
           totalExpenses={expenseData.totalExpenses}
-          colors={COLORS}
         />
       </div>
     </div>

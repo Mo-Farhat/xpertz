@@ -1,27 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Loader } from 'lucide-react';
-import { 
-  collection, 
-  addDoc, 
-  onSnapshot, 
-  query, 
-  orderBy, 
-  where, 
-  getDocs,
-  DocumentData 
-} from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, query, orderBy, where, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
-import ProductList from './PointOfSale/ProductList';
-import ProductForm from './PointOfSale/ProductForm';
-import BarcodeForm from './BarcodeForm';
 import { useToast } from "../hooks/use-toast";
-import { Product } from './PointOfSale/types';
 import { uploadLocalImage } from '../../lib/imageUtils';
-import SearchBar from '../shared/searchBar';
-
-interface ProductWithFile extends Omit<Product, 'id'> {
-  imageFile?: File;
-}
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import InventoryHeader from './Inventory/InventoryHeader';
+import InventoryManager from './Inventory/InventoryManager';
+import { Product, ProductWithFile } from './Inventory/types';
+import InventoryValuationReport from '../Reports/Inventory/InventoryValuationReport';
+import StockMovementReport from '../Reports/Inventory/StockMovementReport';
+import AgingInventoryReport from '../Reports/Inventory/Aging/AgingInventoryReport';
+import InventoryTurnoverReport from '../Reports/Inventory/InventoryTurnoverReport';
+import StockLevelsReport from '../Reports/Inventory/StockLevelsReport';
 
 const Inventory: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -58,23 +48,13 @@ const Inventory: React.FC = () => {
       let imageUrl = newProduct.imageUrl;
       
       if (newProduct.imageFile) {
-        try {
-          imageUrl = await uploadLocalImage(newProduct.imageFile);
-        } catch (uploadError) {
-          console.error("Error uploading image:", uploadError);
-          toast({
-            title: "Error",
-            description: "Failed to upload product image. Please try again.",
-            variant: "destructive",
-          });
-          return;
-        }
+        imageUrl = await uploadLocalImage(newProduct.imageFile);
       }
-      // Prepare the product data for Firestore
+
       const productData = {
         name: newProduct.name,
         price: Number(newProduct.price),
-        quantity: Number(newProduct.stock), // Store stock as quantity in Firestore
+        quantity: Number(newProduct.stock),
         stock: Number(newProduct.stock),
         lowStockThreshold: Number(newProduct.lowStockThreshold),
         imageUrl: imageUrl || '',
@@ -84,18 +64,7 @@ const Inventory: React.FC = () => {
         updatedAt: new Date()
       };
 
-      if (!newProduct.name || newProduct.price <= 0) {
-        toast({
-          title: "Validation Error",
-          description: "Please fill in all required fields correctly.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-
-      const docRef = await addDoc(collection(db, 'inventory'), productData);
-      
+      await addDoc(collection(db, 'inventory'), productData);
       toast({
         title: "Success",
         description: "Product added successfully",
@@ -146,16 +115,50 @@ const Inventory: React.FC = () => {
     }
   };
 
-  const handleAddToCart = (product: Product) => {
-    console.log('Add to cart functionality not implemented in inventory view:', product);
+  const handleUpdateProduct = async (id: string, updatedProduct: Partial<Product>) => {
+    try {
+      setLoading(true);
+      const productRef = doc(db, 'inventory', id);
+      await updateDoc(productRef, {
+        ...updatedProduct,
+        updatedAt: new Date()
+      });
+      
+      toast({
+        title: "Success",
+        description: "Product updated successfully",
+      });
+    } catch (error) {
+      console.error("Error updating product: ", error);
+      toast({
+        title: "Error",
+        description: "Failed to update product. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleUpdateProduct = (id: string, product: Partial<Product>) => {
-    console.log('Update product functionality not implemented:', id, product);
-  };
-
-  const handleDeleteProduct = (id: string) => {
-    console.log('Delete product functionality not implemented:', id);
+  const handleDeleteProduct = async (id: string) => {
+    try {
+      setLoading(true);
+      await deleteDoc(doc(db, 'inventory', id));
+      
+      toast({
+        title: "Success",
+        description: "Product deleted successfully",
+      });
+    } catch (error) {
+      console.error("Error deleting product: ", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete product. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredProducts = products.filter(product =>
@@ -165,26 +168,52 @@ const Inventory: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-semibold">Inventory</h2>
-      <SearchBar 
+      <InventoryHeader 
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
-        placeholder="Search products by name or barcode..."
+        onBarcodeDetected={handleBarcodeDetected}
       />
-      <BarcodeForm onBarcodeDetected={handleBarcodeDetected} />
-      <ProductForm onSubmit={handleAddProduct} />
-      {loading ? (
-        <div className="flex justify-center items-center h-32">
-          <Loader className="animate-spin" size={32} />
-        </div>
-      ) : (
-        <ProductList
-          products={filteredProducts}
-          onUpdate={handleUpdateProduct}
-          onDelete={handleDeleteProduct}
-          onAddToCart={handleAddToCart}
-        />
-      )}
+      
+      <Tabs defaultValue="inventory" className="w-full">
+        <TabsList>
+          <TabsTrigger value="inventory">Inventory Management</TabsTrigger>
+          <TabsTrigger value="valuation">Inventory Valuation</TabsTrigger>
+          <TabsTrigger value="aging">Stock Aging</TabsTrigger>
+          <TabsTrigger value="turnover">Inventory Turnover</TabsTrigger>
+          <TabsTrigger value="movement">Stock Movement</TabsTrigger>
+          <TabsTrigger value="levels">Stock Levels</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="inventory">
+          <InventoryManager
+            loading={loading}
+            products={filteredProducts}
+            onAddProduct={handleAddProduct}
+            onUpdateProduct={handleUpdateProduct}
+            onDeleteProduct={handleDeleteProduct}
+          />
+        </TabsContent>
+        
+        <TabsContent value="valuation">
+          <InventoryValuationReport />
+        </TabsContent>
+        
+        <TabsContent value="aging">
+          <AgingInventoryReport />
+        </TabsContent>
+
+        <TabsContent value="turnover">
+          <InventoryTurnoverReport />
+        </TabsContent>
+
+        <TabsContent value="movement">
+          <StockMovementReport />
+        </TabsContent>
+
+        <TabsContent value="levels">
+          <StockLevelsReport />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

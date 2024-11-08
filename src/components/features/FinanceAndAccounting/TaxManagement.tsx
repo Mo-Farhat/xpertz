@@ -1,20 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, onSnapshot, query, orderBy, limit, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
-import { Plus, Download, Edit, Save, Trash2 } from 'lucide-react';
-
-interface TaxRecord {
-  id: string;
-  taxYear: number;
-  taxType: string;
-  amount: number;
-  dueDate: Date;
-  status: 'pending' | 'paid' | 'overdue';
-  region: string;
-}
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
+import { useToast } from "../../hooks/use-toast";
+import { Button } from "../../../components/ui/button";
+import { BarChart2 } from "lucide-react";
+import TaxForm from './TaxManagement/TaxForm';
+import TaxTable from './TaxManagement/TaxTable';
+import ExportButton from './TaxManagement/ExportButton';
+import TaxReports from '../../Reports/Finance/Tax/TaxReports';
+import { TaxRecord } from './TaxManagement/types';
 
 const TaxManagement: React.FC = () => {
+  const { toast } = useToast();
   const [taxRecords, setTaxRecords] = useState<TaxRecord[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('records');
   const [newTaxRecord, setNewTaxRecord] = useState<Omit<TaxRecord, 'id'>>({
     taxYear: new Date().getFullYear(),
     taxType: '',
@@ -23,7 +24,6 @@ const TaxManagement: React.FC = () => {
     status: 'pending',
     region: '',
   });
-  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'taxRecords'), orderBy('dueDate'), limit(50));
@@ -53,8 +53,17 @@ const TaxManagement: React.FC = () => {
         status: 'pending',
         region: '',
       });
+      toast({
+        title: "Success",
+        description: "Tax record added successfully",
+      });
     } catch (error) {
       console.error("Error adding tax record: ", error);
+      toast({
+        title: "Error",
+        description: "Failed to add tax record",
+        variant: "destructive",
+      });
     }
   };
 
@@ -62,144 +71,79 @@ const TaxManagement: React.FC = () => {
     try {
       await updateDoc(doc(db, 'taxRecords', id), updatedRecord);
       setEditingId(null);
+      toast({
+        title: "Success",
+        description: "Tax record updated successfully",
+      });
     } catch (error) {
       console.error("Error updating tax record: ", error);
+      toast({
+        title: "Error",
+        description: "Failed to update tax record",
+        variant: "destructive",
+      });
     }
   };
 
   const handleDeleteTaxRecord = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'taxRecords', id));
+      toast({
+        title: "Success",
+        description: "Tax record deleted successfully",
+      });
     } catch (error) {
       console.error("Error deleting tax record: ", error);
-    }
-  };
-
-  const handleExport = () => {
-    const csvContent = taxRecords.map(record => 
-      `${record.taxYear},${record.taxType},${record.amount},${record.dueDate.toISOString()},${record.status},${record.region}`
-    ).join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', 'tax_records.csv');
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      toast({
+        title: "Error",
+        description: "Failed to delete tax record",
+        variant: "destructive",
+      });
     }
   };
 
   return (
     <div className="p-4">
-      <h2 className="text-2xl font-bold mb-4">Tax Management</h2>
-      <form onSubmit={handleAddTaxRecord} className="mb-4">
-        <div className="grid grid-cols-2 gap-4">
-          <input
-            type="number"
-            placeholder="Tax Year"
-            value={newTaxRecord.taxYear}
-            onChange={(e) => setNewTaxRecord({ ...newTaxRecord, taxYear: parseInt(e.target.value) })}
-            className="p-2 border rounded"
-          />
-          <input
-            type="text"
-            placeholder="Tax Type"
-            value={newTaxRecord.taxType}
-            onChange={(e) => setNewTaxRecord({ ...newTaxRecord, taxType: e.target.value })}
-            className="p-2 border rounded"
-          />
-          <input
-            type="number"
-            placeholder="Amount"
-            value={newTaxRecord.amount}
-            onChange={(e) => setNewTaxRecord({ ...newTaxRecord, amount: parseFloat(e.target.value) })}
-            className="p-2 border rounded"
-          />
-          <input
-            type="date"
-            value={newTaxRecord.dueDate.toISOString().split('T')[0]}
-            onChange={(e) => setNewTaxRecord({ ...newTaxRecord, dueDate: new Date(e.target.value) })}
-            className="p-2 border rounded"
-          />
-          <select
-            value={newTaxRecord.status}
-            onChange={(e) => setNewTaxRecord({ ...newTaxRecord, status: e.target.value as 'pending' | 'paid' | 'overdue' })}
-            className="p-2 border rounded"
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold">Tax Management</h2>
+        <div className="flex gap-4">
+          <ExportButton taxRecords={taxRecords} />
+          <Button
+            onClick={() => setActiveTab('reports')}
+            className="bg-blue-500 hover:bg-blue-600 flex items-center gap-2"
           >
-            <option value="pending">Pending</option>
-            <option value="paid">Paid</option>
-            <option value="overdue">Overdue</option>
-          </select>
-          <input
-            type="text"
-            placeholder="Region"
-            value={newTaxRecord.region}
-            onChange={(e) => setNewTaxRecord({ ...newTaxRecord, region: e.target.value })}
-            className="p-2 border rounded"
-          />
-          <button type="submit" className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600">
-            <Plus size={24} />
-          </button>
+            <BarChart2 size={18} />
+            View Reports
+          </Button>
         </div>
-      </form>
-      <button
-        onClick={handleExport}
-        className="mb-4 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center"
-      >
-        <Download size={18} className="mr-2" />
-        Export CSV
-      </button>
-      <table className="w-full bg-white shadow-md rounded">
-        <thead>
-          <tr className="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
-            <th className="py-3 px-6 text-left">Tax Year</th>
-            <th className="py-3 px-6 text-left">Tax Type</th>
-            <th className="py-3 px-6 text-right">Amount</th>
-            <th className="py-3 px-6 text-left">Due Date</th>
-            <th className="py-3 px-6 text-left">Status</th>
-            <th className="py-3 px-6 text-left">Region</th>
-            <th className="py-3 px-6 text-center">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="text-gray-600 text-sm font-light">
-          {taxRecords.map((record) => (
-            <tr key={record.id} className="border-b border-gray-200 hover:bg-gray-100">
-              <td className="py-3 px-6 text-left whitespace-nowrap">{record.taxYear}</td>
-              <td className="py-3 px-6 text-left">{record.taxType}</td>
-              <td className="py-3 px-6 text-right">${record.amount.toFixed(2)}</td>
-              <td className="py-3 px-6 text-left">{record.dueDate.toLocaleDateString()}</td>
-              <td className="py-3 px-6 text-left">
-                <span className={`py-1 px-3 rounded-full text-xs ${
-                  record.status === 'paid' ? 'bg-green-200 text-green-800' :
-                  record.status === 'overdue' ? 'bg-red-200 text-red-800' :
-                  'bg-yellow-200 text-yellow-800'
-                }`}>
-                  {record.status}
-                </span>
-              </td>
-              <td className="py-3 px-6 text-left">{record.region}</td>
-              <td className="py-3 px-6 text-center">
-                <button
-                  onClick={() => setEditingId(record.id)}
-                  className="text-blue-500 hover:text-blue-700 mr-2"
-                >
-                  <Edit size={18} />
-                </button>
-                <button
-                  onClick={() => handleDeleteTaxRecord(record.id)}
-                  className="text-red-500 hover:text-red-700"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList>
+          <TabsTrigger value="records">Tax Records</TabsTrigger>
+          <TabsTrigger value="reports">Reports & Analysis</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="records">
+          <div className="space-y-4">            
+            <TaxForm
+              newTaxRecord={newTaxRecord}
+              setNewTaxRecord={setNewTaxRecord}
+              onSubmit={handleAddTaxRecord}
+            />
+            
+            <TaxTable
+              taxRecords={taxRecords}
+              onEdit={setEditingId}
+              onDelete={handleDeleteTaxRecord}
+            />
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="reports">
+          <TaxReports />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
