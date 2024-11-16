@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { collection, addDoc, onSnapshot, query, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import ProductForm from './ProductForm';
-import ProductList from './ProductList';
+import ProductList from './ProductListView';
 
 interface Product {
   id: string;
   name: string;
   quantity: number;
   price: number;
+  minSellingPrice: number;
   stock: number;
   lowStockThreshold: number;
   imageUrl?: string;
@@ -26,6 +27,7 @@ const InventoryManagement: React.FC = () => {
         id: doc.id,
         ...doc.data(),
         stock: doc.data().quantity, // Map quantity to stock for compatibility
+        minSellingPrice: doc.data().minSellingPrice || 0, // Add default value for minSellingPrice
       } as Product));
       setProducts(productsData);
     });
@@ -38,6 +40,7 @@ const InventoryManagement: React.FC = () => {
       await addDoc(collection(db, 'inventory'), {
         ...newProduct,
         quantity: newProduct.stock, // Map stock to quantity for storage
+        minSellingPrice: newProduct.minSellingPrice,
       });
     } catch (error) {
       console.error("Error adding product: ", error);
@@ -87,6 +90,7 @@ const InventoryManagement: React.FC = () => {
         products={filteredProducts}
         onUpdate={handleUpdateProduct}
         onDelete={handleDeleteProduct}
+        
       />
     </div>
   );

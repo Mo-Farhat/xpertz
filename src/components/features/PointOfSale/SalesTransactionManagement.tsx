@@ -1,29 +1,27 @@
 import React, { useState } from 'react';
 import { Search } from 'lucide-react';
 import { useSalesContext } from './SalesContext';
-import ProductList from './ProductList';
+import ProductGridView from './ProductGridView';
 import Cart from './Cart';
 import { Input } from "../../ui/input";
 import { Button } from "../../ui/button";
 import PaymentValidation from './PaymentValidation';
 import HirePurchasePaymentValidation from './HirePurchasePaymentValidation';
 import Numpad from './Numpad';
-import { useToast } from "../../hooks/use-toast";
-import { Product } from './types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import { Card, CardContent } from "../../ui/card";
+import ReturnForm from './ReturnForm';
 
-const SalesTransactionManagement: React.FC = () => {
-  const { searchTerm, setSearchTerm, error, addToCart, discount, products, setTotalDiscount, applyProductDiscount } = useSalesContext();
-  const [showPaymentValidation, setShowPaymentValidation] = useState(false);
+interface SalesTransactionManagementProps {
+  onProceedToPayment: () => void;
+}
+
+const SalesTransactionManagement: React.FC<SalesTransactionManagementProps> = ({}) => {
+  const { searchTerm, setSearchTerm, error, addToCart, products, setTotalDiscount, applyProductDiscount, calculateTotal, calculateSubtotal } = useSalesContext();
   const [activeInput, setActiveInput] = useState<string | null>(null);
   const [numpadValue, setNumpadValue] = useState('');
   const [activeTab, setActiveTab] = useState('regular');
-  const { toast } = useToast();
-
-  const handleBackFromPayment = () => {
-    setShowPaymentValidation(false);
-  };
+  const [showPayment, setShowPayment] = useState(false);
 
   const handleNumpadClick = (value: string) => {
     if (activeInput === 'search') {
@@ -59,11 +57,16 @@ const SalesTransactionManagement: React.FC = () => {
     setActiveInput(null);
   };
 
-  if (showPaymentValidation) {
+  if (showPayment) {
     return activeTab === 'hirePurchase' 
-      ? <HirePurchasePaymentValidation onBack={handleBackFromPayment} />
-      : <PaymentValidation onBack={handleBackFromPayment} />;
+      ? <HirePurchasePaymentValidation onBack={() => setShowPayment(false)} />
+      : <PaymentValidation onBack={() => setShowPayment(false)} />;
   }
+
+  const subtotal = calculateSubtotal();
+  const total = calculateTotal();
+  const totalDiscount = subtotal - total;
+  const discountPercentage = ((totalDiscount / subtotal) * 100) || 0;
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 p-6 max-w-[1800px] mx-auto min-h-[calc(100vh-4rem)]">
@@ -81,11 +84,9 @@ const SalesTransactionManagement: React.FC = () => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={24} />
           </div>
           <div className="overflow-auto max-h-[calc(100vh-15rem)]">
-            <ProductList
+            <ProductGridView
               products={products}
-              onUpdate={() => {}}
-              onDelete={() => {}}
-              onAddToCart={(product: Product) => addToCart(product)}
+              onAddToCart={addToCart}
             />
           </div>
         </CardContent>
@@ -94,7 +95,7 @@ const SalesTransactionManagement: React.FC = () => {
       <Card className="w-full lg:w-[450px] flex flex-col">
         <CardContent className="p-6 flex flex-col h-full">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsList className="grid w-full grid-cols-3 mb-6">
               <TabsTrigger 
                 value="regular"
                 className="data-[state=active]:bg-purple-600 data-[state=active]:text-white"
@@ -106,6 +107,12 @@ const SalesTransactionManagement: React.FC = () => {
                 className="data-[state=active]:bg-purple-600 data-[state=active]:text-white"
               >
                 Hire Purchase
+              </TabsTrigger>
+              <TabsTrigger 
+                value="returns"
+                className="data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+              >
+                Returns
               </TabsTrigger>
             </TabsList>
             
@@ -129,25 +136,47 @@ const SalesTransactionManagement: React.FC = () => {
                     isHirePurchase={true}
                   />
                 </TabsContent>
+                <TabsContent value="returns" className="m-0">
+                  <ReturnForm onComplete={() => setActiveTab('regular')} />
+                </TabsContent>
               </div>
 
-              <div className="mt-6 space-y-4">
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <Numpad
-                    onNumberClick={handleNumpadClick}
-                    onDiscountClick={handleDiscountClick}
-                    onBackspaceClick={handleBackspaceClick}
-                    onEnterClick={handleEnterClick}
-                  />
-                </div>
-                
-                <Button 
-                  className="w-full h-14 text-lg font-medium bg-purple-600 hover:bg-purple-700 text-white transition-colors duration-200"
-                  onClick={() => setShowPaymentValidation(true)}
-                >
-                  Proceed to Payment
-                </Button>
-              </div>
+              {activeTab !== 'returns' && (
+                <>
+                  <div className="mt-4 bg-gray-50 p-4 rounded-lg">
+                    <div className="flex justify-between mb-2">
+                      <span className="text-gray-600">Subtotal:</span>
+                      <span className="font-semibold">${subtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between mb-2 text-green-600">
+                      <span>Total Discount:</span>
+                      <span className="font-semibold">-${totalDiscount.toFixed(2)} ({discountPercentage.toFixed(1)}%)</span>
+                    </div>
+                    <div className="flex justify-between text-lg font-bold">
+                      <span>Final Total:</span>
+                      <span>${total.toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 space-y-4">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <Numpad
+                        onNumberClick={handleNumpadClick}
+                        onDiscountClick={handleDiscountClick}
+                        onBackspaceClick={handleBackspaceClick}
+                        onEnterClick={handleEnterClick}
+                      />
+                    </div>
+                    
+                    <Button 
+                      className="w-full h-14 text-lg font-medium bg-purple-600 hover:bg-purple-700 text-white transition-colors duration-200"
+                      onClick={() => setShowPayment(true)}
+                    >
+                      Proceed to Payment
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </Tabs>
         </CardContent>
@@ -162,4 +191,4 @@ const SalesTransactionManagement: React.FC = () => {
   );
 };
 
-export default SalesTransactionManagement;
+export default SalesTransactionManagement

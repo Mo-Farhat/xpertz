@@ -2,14 +2,13 @@ export interface Product {
   id: string;
   name: string;
   price: number;
-  stock: number;
   quantity: number;
+  stock: number;
   lowStockThreshold: number;
+  description?: string;
   imageUrl?: string;
-  barcode?: string;
-  manufacturer?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
+  category?: string;
+  discount?: number;
 }
 
 export interface CartItem extends Product {
@@ -22,7 +21,11 @@ export interface Customer {
   name: string;
   email: string;
   phone: string;
+  status: 'active' | 'inactive';
   hirePurchaseCustomer: boolean;
+  loyaltyPoints: number;
+  company?: string;
+  notes?: string;
 }
 
 export interface HirePurchaseAgreement {
@@ -48,6 +51,14 @@ export interface SalesContextType {
   searchTerm: string;
   setSearchTerm: React.Dispatch<React.SetStateAction<string>>;
   discount: number;
+  isHirePurchase: boolean;
+  setIsHirePurchase: React.Dispatch<React.SetStateAction<boolean>>;
+  customers: Customer[];
+  selectedCustomer: Customer | null;
+  setSelectedCustomer: React.Dispatch<React.SetStateAction<Customer | null>>;
+  hirePurchaseItems: CartItem[];
+  setHirePurchaseItemsFromCart: () => void;
+  createHirePurchaseAgreement: (formData: HirePurchaseAgreement) => Promise<string>;
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
   clearCart: () => void;
@@ -56,4 +67,33 @@ export interface SalesContextType {
   setTotalDiscount: (discountPercentage: number) => void;
   applyProductDiscount: (productId: string, discountPercentage: number) => void;
   handleCheckout: () => Promise<void>;
+}
+
+export interface ReturnItem {
+  productId: string;
+  quantity: number;
+  condition: 'good' | 'damaged';
+}
+
+export interface ReturnRequest {
+  id: string;
+  orderId: string;
+  customerName: string;
+  customerId: string;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected' | 'processed';
+  amount: number;
+  items: ReturnItem[];
+  requestDate: Date;
+  createdAt: Date;
+  processedDate?: Date;
+}
+
+export interface Sale {
+  orderId: string;
+  items: CartItem[];
+  subtotal: number;
+  totalDiscount: number;
+  total: number;
+  date: Date;
 }

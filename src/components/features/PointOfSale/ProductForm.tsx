@@ -1,163 +1,111 @@
-import React, { useState, useRef } from 'react';
-import { Plus, Upload } from 'lucide-react';
-import { Button } from "../../ui/button";
+import React, { useState } from 'react';
 import { Input } from "../../ui/input";
-import { Card } from "../../ui/card";
-import { Label } from "../../ui/label";
-import { Product } from './types';
+import { Button } from "../../ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
+import ImageUpload from './ImageUpload';
+import { ProductWithFile } from '../Inventory/types';
 
 interface ProductFormProps {
-  onSubmit: (product: Omit<Product, 'id'> & { imageFile?: File }) => void;
+  onSubmit: (product: ProductWithFile) => Promise<void>;
 }
 
 const ProductForm: React.FC<ProductFormProps> = ({ onSubmit }) => {
-  const [newProduct, setNewProduct] = useState({
+  const [product, setProduct] = useState<ProductWithFile>({
     name: '',
     quantity: 0,
     price: 0,
+    minSellingPrice: 0,
     stock: 0,
-    lowStockThreshold: 10,
+    lowStockThreshold: 0,
     imageUrl: '',
-    imageFile: undefined as File | undefined,
+    imageFile: undefined,
     barcode: '',
     manufacturer: ''
   });
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setNewProduct(prev => ({ ...prev, imageFile: file }));
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(newProduct);
-    setNewProduct({
+    await onSubmit(product);
+    setProduct({
       name: '',
       quantity: 0,
       price: 0,
+      minSellingPrice: 0,
       stock: 0,
-      lowStockThreshold: 10,
+      lowStockThreshold: 0,
       imageUrl: '',
       imageFile: undefined,
       barcode: '',
       manufacturer: ''
     });
-    setPreviewUrl(null);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <Card className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Product Name</Label>
+    <Card>
+      <CardHeader>
+        <CardTitle>Add New Product</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
-              id="name"
-              type="text"
-              value={newProduct.name}
-              onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+              placeholder="Product Name"
+              value={product.name}
+              onChange={(e) => setProduct({ ...product, name: e.target.value })}
               required
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="barcode">Barcode</Label>
             <Input
-              id="barcode"
-              type="text"
-              value={newProduct.barcode}
-              onChange={(e) => setNewProduct({ ...newProduct, barcode: e.target.value })}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="manufacturer">Manufacturer</Label>
-            <Input
-              id="manufacturer"
-              type="text"
-              value={newProduct.manufacturer}
-              onChange={(e) => setNewProduct({ ...newProduct, manufacturer: e.target.value })}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="price">Price</Label>
-            <Input
-              id="price"
               type="number"
-              value={newProduct.price}
-              onChange={(e) => setNewProduct({ ...newProduct, price: parseFloat(e.target.value) })}
+              placeholder="Price"
+              value={product.price || ''}
+              onChange={(e) => setProduct({ ...product, price: parseFloat(e.target.value) })}
+              required
+              min="0"
               step="0.01"
-              required
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="stock">Stock</Label>
             <Input
-              id="stock"
               type="number"
-              value={newProduct.stock}
-              onChange={(e) => setNewProduct({ ...newProduct, stock: parseInt(e.target.value) })}
+              placeholder="Minimum Selling Price"
+              value={product.minSellingPrice || ''}
+              onChange={(e) => setProduct({ ...product, minSellingPrice: parseFloat(e.target.value) })}
               required
+              min="0"
+              step="0.01"
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="lowStockThreshold">Low Stock Threshold</Label>
             <Input
-              id="lowStockThreshold"
               type="number"
-              value={newProduct.lowStockThreshold}
-              onChange={(e) => setNewProduct({ ...newProduct, lowStockThreshold: parseInt(e.target.value) })}
+              placeholder="Initial Stock"
+              value={product.stock || ''}
+              onChange={(e) => setProduct({ ...product, stock: parseInt(e.target.value) })}
               required
+              min="0"
+            />
+            <Input
+              type="number"
+              placeholder="Low Stock Threshold"
+              value={product.lowStockThreshold || ''}
+              onChange={(e) => setProduct({ ...product, lowStockThreshold: parseInt(e.target.value) })}
+              required
+              min="0"
+            />
+            <Input
+              placeholder="Barcode"
+              value={product.barcode}
+              onChange={(e) => setProduct({ ...product, barcode: e.target.value })}
+            />
+            <Input
+              placeholder="Manufacturer"
+              value={product.manufacturer}
+              onChange={(e) => setProduct({ ...product, manufacturer: e.target.value })}
             />
           </div>
-
-          <div className="space-y-2">
-            <Label>Product Image</Label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              className="hidden"
-              ref={fileInputRef}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full"
-            >
-              <Upload className="mr-2 h-4 w-4" />
-              Upload Image
-            </Button>
-            {previewUrl && (
-              <div className="mt-2">
-                <img
-                  src={previewUrl}
-                  alt="Preview"
-                  className="max-w-full h-auto max-h-32 object-contain"
-                />
-              </div>
-            )}
+          <div className="mt-4">
+            <ImageUpload onImageUploaded={(url) => setProduct({ ...product, imageUrl: url })} />
           </div>
-        </div>
-
-        <Button type="submit" className="w-full mt-4">
-          <Plus className="mr-2 h-4 w-4" /> Add Product
-        </Button>
-      </Card>
-    </form>
+          <Button type="submit" className="w-full">Add Product</Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 };
 

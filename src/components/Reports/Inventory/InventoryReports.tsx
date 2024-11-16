@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs';
 import StockLevelsReport from './StockLevelsReport';
-import StockMovementReport from './StockMovementReport';
+import StockMovementReport from './StockMovement/StockMovementReport';
 import InventoryValuationReport from './InventoryValuationReport';
 import AgingInventoryReport from './Aging/AgingInventoryReport';
 import InventoryTurnoverReport from './InventoryTurnoverReport';

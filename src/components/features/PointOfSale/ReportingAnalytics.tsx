@@ -3,6 +3,10 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Download } from 'lucide-react';
+import { Button } from "../../../components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { useToast } from "../../hooks/use-toast";
 
 interface SalesData {
   date: string;
@@ -20,6 +24,7 @@ const ReportingAnalytics: React.FC = () => {
   const [salesData, setSalesData] = useState<SalesData[]>([]);
   const [productSalesData, setProductSalesData] = useState<ProductSalesData[]>([]);
   const [dateRange, setDateRange] = useState<'week' | 'month' | 'year'>('week');
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchSalesData();
@@ -43,19 +48,19 @@ const ReportingAnalytics: React.FC = () => {
         break;
     }
 
-    const q = query(
-      salesCollection,
-      where('date', '>=', startDate),
-      where('date', '<=', endDate)
-    );
-
     try {
+      const q = query(
+        salesCollection,
+        where('date', '>=', startDate),
+        where('date', '<=', endDate)
+      );
+
       const querySnapshot = await getDocs(q);
       const sales: { [date: string]: number } = {};
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
-        const date = new Date(data.date.seconds * 1000).toISOString().split('T')[0];
+        const date = new Date(data.date.seconds * 1000).toLocaleDateString();
         sales[date] = (sales[date] || 0) + data.total;
       });
 
@@ -67,22 +72,27 @@ const ReportingAnalytics: React.FC = () => {
       setSalesData(salesData.sort((a, b) => a.date.localeCompare(b.date)));
     } catch (error) {
       console.error("Error fetching sales data: ", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch sales data",
+        variant: "destructive",
+      });
     }
   };
 
   const fetchProductSalesData = async () => {
-    const salesCollection = collection(db, 'sales');
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(endDate.getDate() - 30); // Last 30 days
-
-    const q = query(
-      salesCollection,
-      where('date', '>=', startDate),
-      where('date', '<=', endDate)
-    );
-
     try {
+      const salesCollection = collection(db, 'sales');
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(endDate.getDate() - 30);
+
+      const q = query(
+        salesCollection,
+        where('date', '>=', startDate),
+        where('date', '<=', endDate)
+      );
+
       const querySnapshot = await getDocs(q);
       const productSales: { [productId: string]: { name: string; sales: number } } = {};
 
@@ -103,85 +113,105 @@ const ReportingAnalytics: React.FC = () => {
       setProductSalesData(productSalesData);
     } catch (error) {
       console.error("Error fetching product sales data: ", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch product sales data",
+        variant: "destructive",
+      });
     }
   };
 
   const handleExport = () => {
-    const csvContent = salesData.map(data => 
-      `${data.date},${data.totalSales}`
-    ).join('\n');
+    const csvContent = "Date,Total Sales\n" + 
+      salesData.map(data => `${data.date},${data.totalSales}`).join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', 'sales_report.csv');
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
+    link.setAttribute('href', url);
+    link.setAttribute('download', `sales_report_${dateRange}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({
+      title: "Success",
+      description: "Sales report exported successfully",
+    });
   };
 
   return (
-    <div>
-      <h3 className="text-xl font-semibold mb-4">Reporting & Analytics</h3>
-      <div className="mb-4">
-        <select
-          value={dateRange}
-          onChange={(e) => setDateRange(e.target.value as 'week' | 'month' | 'year')}
-          className="p-2 border rounded mr-2"
-        >
-          <option value="week">Last Week</option>
-          <option value="month">Last Month</option>
-          <option value="year">Last Year</option>
-        </select>
-        <button
-          onClick={handleExport}
-          className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-        >
-          <Download size={18} className="inline mr-2" />
-          Export CSV
-        </button>
+    <div className="space-y-6 p-6">
+      <div className="flex justify-between items-center">
+        <h3 className="text-2xl font-bold">Sales Analytics</h3>
+        <div className="flex gap-4">
+          <Select value={dateRange} onValueChange={(value: 'week' | 'month' | 'year') => setDateRange(value)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select time range" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="week">Last Week</SelectItem>
+              <SelectItem value="month">Last Month</SelectItem>
+              <SelectItem value="year">Last Year</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={handleExport} className="flex items-center gap-2">
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
+        </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <h4 className="text-lg font-semibold mb-2">Sales Trend</h4>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={salesData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="totalSales" fill="#8884d8" name="Total Sales" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div>
-          <h4 className="text-lg font-semibold mb-2">Top 5 Products (Last 30 Days)</h4>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={productSalesData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="sales"
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-              >
-                {productSalesData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Sales Trend</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={salesData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="totalSales" fill="#8884d8" name="Total Sales" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Top 5 Products (Last 30 Days)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={productSalesData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="sales"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {productSalesData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

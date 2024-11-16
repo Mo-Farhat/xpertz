@@ -1,19 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, onSnapshot, query, orderBy, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
-import { Plus, Download, Edit, Trash2, Truck } from 'lucide-react';
-
-interface FulfillmentOrder {
-  id: string;
-  orderId: string;
-  customerName: string;
-  status: 'pending' | 'processing' | 'shipped' | 'delivered';
-  shippingMethod: string;
-  trackingNumber: string;
-  estimatedDeliveryDate: Date;
-  actualDeliveryDate?: Date;
-  createdAt: Date;
-}
+import { Download, Edit, Trash2 } from 'lucide-react';
+import { Button } from "../../../components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
+import { Badge } from "../../../components/ui/badge";
+import { useToast } from "../../hooks/use-toast";
+import { FulfillmentOrder } from './OrderFulfillment/types';
+import FulfillmentMetrics from './OrderFulfillment/FulfillmentMetrics';
+import FulfillmentForm from './OrderFulfillment/FulfillmentForm';
 
 const OrderFulfillment: React.FC = () => {
   const [fulfillments, setFulfillments] = useState<FulfillmentOrder[]>([]);
@@ -26,6 +21,7 @@ const OrderFulfillment: React.FC = () => {
     estimatedDeliveryDate: new Date(),
   });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     const q = query(collection(db, 'orderFulfillments'), orderBy('createdAt', 'desc'));
@@ -57,8 +53,17 @@ const OrderFulfillment: React.FC = () => {
         trackingNumber: '',
         estimatedDeliveryDate: new Date(),
       });
+      toast({
+        title: "Success",
+        description: "Fulfillment added successfully",
+      });
     } catch (error) {
       console.error("Error adding fulfillment: ", error);
+      toast({
+        title: "Error",
+        description: "Failed to add fulfillment",
+        variant: "destructive",
+      });
     }
   };
 
@@ -66,146 +71,133 @@ const OrderFulfillment: React.FC = () => {
     try {
       await updateDoc(doc(db, 'orderFulfillments', id), updatedFulfillment);
       setEditingId(null);
+      toast({
+        title: "Success",
+        description: "Fulfillment updated successfully",
+      });
     } catch (error) {
       console.error("Error updating fulfillment: ", error);
+      toast({
+        title: "Error",
+        description: "Failed to update fulfillment",
+        variant: "destructive",
+      });
     }
   };
 
   const handleDeleteFulfillment = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this fulfillment?')) return;
+    
     try {
       await deleteDoc(doc(db, 'orderFulfillments', id));
+      toast({
+        title: "Success",
+        description: "Fulfillment deleted successfully",
+      });
     } catch (error) {
       console.error("Error deleting fulfillment: ", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete fulfillment",
+        variant: "destructive",
+      });
     }
   };
 
   const handleExport = () => {
-    const csvContent = fulfillments.map(fulfillment => 
-      `${fulfillment.orderId},${fulfillment.customerName},${fulfillment.status},${fulfillment.shippingMethod},${fulfillment.trackingNumber},${fulfillment.estimatedDeliveryDate.toISOString()},${fulfillment.actualDeliveryDate?.toISOString() || ''},${fulfillment.createdAt.toISOString()}`
-    ).join('\n');
+    const headers = ['Order ID', 'Customer Name', 'Status', 'Shipping Method', 'Tracking Number', 'Est. Delivery Date', 'Actual Delivery Date', 'Created At'];
+    const csvContent = [
+      headers.join(','),
+      ...fulfillments.map(f => 
+        `${f.orderId},${f.customerName},${f.status},${f.shippingMethod},${f.trackingNumber},${f.estimatedDeliveryDate.toISOString()},${f.actualDeliveryDate?.toISOString() || ''},${f.createdAt.toISOString()}`
+      )
+    ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', 'order_fulfillments.csv');
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'order_fulfillments.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
-    <div>
-      <h3 className="text-xl font-semibold mb-4">Order Fulfillment</h3>
-      <form onSubmit={handleAddFulfillment} className="mb-4">
-        <div className="grid grid-cols-2 gap-4">
-          <input
-            type="text"
-            placeholder="Order ID"
-            value={newFulfillment.orderId}
-            onChange={(e) => setNewFulfillment({ ...newFulfillment, orderId: e.target.value })}
-            className="p-2 border rounded"
-          />
-          <input
-            type="text"
-            placeholder="Customer Name"
-            value={newFulfillment.customerName}
-            onChange={(e) => setNewFulfillment({ ...newFulfillment, customerName: e.target.value })}
-            className="p-2 border rounded"
-          />
-          <select
-            value={newFulfillment.status}
-            onChange={(e) => setNewFulfillment({ ...newFulfillment, status: e.target.value as FulfillmentOrder['status'] })}
-            className="p-2 border rounded"
-          >
-            <option value="pending">Pending</option>
-            <option value="processing">Processing</option>
-            <option value="shipped">Shipped</option>
-            <option value="delivered">Delivered</option>
-          </select>
-          <input
-            type="text"
-            placeholder="Shipping Method"
-            value={newFulfillment.shippingMethod}
-            onChange={(e) => setNewFulfillment({ ...newFulfillment, shippingMethod: e.target.value })}
-            className="p-2 border rounded"
-          />
-          <input
-            type="text"
-            placeholder="Tracking Number"
-            value={newFulfillment.trackingNumber}
-            onChange={(e) => setNewFulfillment({ ...newFulfillment, trackingNumber: e.target.value })}
-            className="p-2 border rounded"
-          />
-          <input
-            type="date"
-            value={newFulfillment.estimatedDeliveryDate.toISOString().split('T')[0]}
-            onChange={(e) => setNewFulfillment({ ...newFulfillment, estimatedDeliveryDate: new Date(e.target.value) })}
-            className="p-2 border rounded"
-          />
-        </div>
-        <button type="submit" className="mt-4 bg-blue-500 text-white p-2 rounded hover:bg-blue-600">
-          <Plus size={24} /> Add Fulfillment
-        </button>
-      </form>
-      <button
-        onClick={handleExport}
-        className="mb-4 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center"
-      >
-        <Download size={18} className="mr-2" />
-        Export CSV
-      </button>
-      <table className="w-full bg-white shadow-md rounded">
-        <thead>
-          <tr className="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
-            <th className="py-3 px-6 text-left">Order ID</th>
-            <th className="py-3 px-6 text-left">Customer</th>
-            <th className="py-3 px-6 text-left">Status</th>
-            <th className="py-3 px-6 text-left">Shipping Method</th>
-            <th className="py-3 px-6 text-left">Tracking Number</th>
-            <th className="py-3 px-6 text-left">Est. Delivery</th>
-            <th className="py-3 px-6 text-center">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="text-gray-600 text-sm font-light">
-          {fulfillments.map((fulfillment) => (
-            <tr key={fulfillment.id} className="border-b border-gray-200 hover:bg-gray-100">
-              <td className="py-3 px-6 text-left whitespace-nowrap">{fulfillment.orderId}</td>
-              <td className="py-3 px-6 text-left">{fulfillment.customerName}</td>
-              <td className="py-3 px-6 text-left">
-                <span className={`py-1 px-3 rounded-full text-xs ${
-                  fulfillment.status === 'pending' ? 'bg-yellow-200 text-yellow-800' :
-                  fulfillment.status === 'processing' ? 'bg-blue-200 text-blue-800' :
-                  fulfillment.status === 'shipped' ? 'bg-purple-200 text-purple-800' :
-                  'bg-green-200 text-green-800'
-                }`}>
-                  {fulfillment.status}
-                </span>
-              </td>
-              <td className="py-3 px-6 text-left">{fulfillment.shippingMethod}</td>
-              <td className="py-3 px-6 text-left">{fulfillment.trackingNumber}</td>
-              <td className="py-3 px-6 text-left">{fulfillment.estimatedDeliveryDate.toLocaleDateString()}</td>
-              <td className="py-3 px-6 text-center">
-                <button
-                  onClick={() => setEditingId(fulfillment.id)}
-                  className="text-blue-500 hover:text-blue-700 mr-2"
-                >
-                  <Edit size={18} />
-                </button>
-                <button
-                  onClick={() => handleDeleteFulfillment(fulfillment.id)}
-                  className="text-red-500 hover:text-red-700"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Order Fulfillment</h2>
+        <Button onClick={handleExport} variant="outline" className="flex items-center gap-2">
+          <Download className="h-4 w-4" />
+          Export CSV
+        </Button>
+      </div>
+
+      <FulfillmentMetrics orders={fulfillments} />
+      
+      <div className="bg-white p-6 rounded-lg shadow-sm">
+        <h3 className="text-lg font-semibold mb-4">Create New Fulfillment</h3>
+        <FulfillmentForm
+          fulfillment={newFulfillment}
+          onFulfillmentChange={setNewFulfillment}
+          onSubmit={handleAddFulfillment}
+        />
+      </div>
+
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Order ID</TableHead>
+              <TableHead>Customer</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Shipping Method</TableHead>
+              <TableHead>Tracking Number</TableHead>
+              <TableHead>Est. Delivery</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {fulfillments.map((fulfillment) => (
+              <TableRow key={fulfillment.id}>
+                <TableCell>{fulfillment.orderId}</TableCell>
+                <TableCell>{fulfillment.customerName}</TableCell>
+                <TableCell>
+                  <Badge variant={
+                    fulfillment.status === 'pending' ? 'secondary' :
+                    fulfillment.status === 'processing' ? 'default' :
+                    fulfillment.status === 'shipped' ? 'default' :
+                    'success'
+                  }>
+                    {fulfillment.status}
+                  </Badge>
+                </TableCell>
+                <TableCell>{fulfillment.shippingMethod}</TableCell>
+                <TableCell>{fulfillment.trackingNumber}</TableCell>
+                <TableCell>{fulfillment.estimatedDeliveryDate.toLocaleDateString()}</TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingId(fulfillment.id)}
+                    className="mr-2"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeleteFulfillment(fulfillment.id)}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 };

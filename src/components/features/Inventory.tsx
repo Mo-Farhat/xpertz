@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, onSnapshot, query, orderBy, where, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, query, orderBy, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useToast } from "../hooks/use-toast";
 import { uploadLocalImage } from '../../lib/imageUtils';
@@ -8,7 +8,7 @@ import InventoryHeader from './Inventory/InventoryHeader';
 import InventoryManager from './Inventory/InventoryManager';
 import { Product, ProductWithFile } from './Inventory/types';
 import InventoryValuationReport from '../Reports/Inventory/InventoryValuationReport';
-import StockMovementReport from '../Reports/Inventory/StockMovementReport';
+import StockMovementReport from '../Reports/Inventory/StockMovement/StockMovementReport';
 import AgingInventoryReport from '../Reports/Inventory/Aging/AgingInventoryReport';
 import InventoryTurnoverReport from '../Reports/Inventory/InventoryTurnoverReport';
 import StockLevelsReport from '../Reports/Inventory/StockLevelsReport';
@@ -26,6 +26,7 @@ const Inventory: React.FC = () => {
         id: doc.id,
         ...doc.data(),
         stock: doc.data().quantity,
+        minSellingPrice: doc.data().minSellingPrice || 0,
       } as Product));
       setProducts(inventoryProducts);
       setLoading(false);
@@ -54,6 +55,7 @@ const Inventory: React.FC = () => {
       const productData = {
         name: newProduct.name,
         price: Number(newProduct.price),
+        minSellingPrice: Number(newProduct.minSellingPrice),
         quantity: Number(newProduct.stock),
         stock: Number(newProduct.stock),
         lowStockThreshold: Number(newProduct.lowStockThreshold),
@@ -78,40 +80,6 @@ const Inventory: React.FC = () => {
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleBarcodeDetected = async (barcode: string) => {
-    try {
-      const q = query(collection(db, 'inventory'), where('barcode', '==', barcode));
-      const querySnapshot = await getDocs(q);
-      
-      if (!querySnapshot.empty) {
-        toast({
-          title: "Product Found",
-          description: `Found product with barcode: ${barcode}`,
-        });
-        const productId = querySnapshot.docs[0].id;
-        const element = document.getElementById(`product-${productId}`);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth' });
-          element.classList.add('bg-yellow-100');
-          setTimeout(() => element.classList.remove('bg-yellow-100'), 2000);
-        }
-      } else {
-        toast({
-          title: "Product Not Found",
-          description: `No product found with barcode: ${barcode}`,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error searching for barcode:", error);
-      toast({
-        title: "Error",
-        description: "Failed to search for product",
-        variant: "destructive",
-      });
     }
   };
 
@@ -171,7 +139,6 @@ const Inventory: React.FC = () => {
       <InventoryHeader 
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
-        onBarcodeDetected={handleBarcodeDetected}
       />
       
       <Tabs defaultValue="inventory" className="w-full">

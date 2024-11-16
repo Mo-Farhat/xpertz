@@ -6,26 +6,56 @@ import { Card } from "../ui/card";
 import BarcodeScanner from './BarcodeScanner';
 import { useToast } from "../hooks/use-toast";
 import { debounce } from 'lodash';
+import { findProductByBarcode } from '../services/barcodeService';
 
 interface BarcodeFormProps {
   onBarcodeDetected: (barcode: string) => void;
+  onProductFound?: (product: any) => void;
 }
 
-const BarcodeForm: React.FC<BarcodeFormProps> = ({ onBarcodeDetected }) => {
+const BarcodeForm: React.FC<BarcodeFormProps> = ({ onBarcodeDetected, onProductFound }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [manualBarcode, setManualBarcode] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
   const { toast } = useToast();
+
+  const handleProductLookup = async (barcode: string) => {
+    setIsSearching(true);
+    try {
+      const product = await findProductByBarcode(barcode);
+      if (product) {
+        toast({
+          title: "Product Found",
+          description: `Found: ${product.name}`,
+        });
+        if (onProductFound) {
+          onProductFound(product);
+        }
+      } else {
+        toast({
+          title: "Product Not Found",
+          description: `No product found with barcode: ${barcode}`,
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to look up product",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   // Debounce the barcode detection to prevent rapid-fire queries
   const debouncedBarcodeDetection = useCallback(
     debounce((barcode: string) => {
       onBarcodeDetected(barcode);
-      toast({
-        title: "Searching",
-        description: `Looking for barcode: ${barcode}`
-      });
+      handleProductLookup(barcode);
     }, 1000),
-    [onBarcodeDetected, toast]
+    [onBarcodeDetected]
   );
 
   const handleManualSubmit = (e: React.FormEvent) => {
@@ -57,7 +87,9 @@ const BarcodeForm: React.FC<BarcodeFormProps> = ({ onBarcodeDetected }) => {
             value={manualBarcode}
             onChange={(e) => setManualBarcode(e.target.value)}
           />
-          <Button type="submit">Search</Button>
+          <Button type="submit" disabled={isSearching}>
+            {isSearching ? 'Searching...' : 'Search'}
+          </Button>
         </form>
 
         <div className="flex items-center justify-between">

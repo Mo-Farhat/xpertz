@@ -1,17 +1,14 @@
 import React from 'react';
 import SearchBar from '../../shared/searchBar';
-import BarcodeForm from '../BarcodeForm';
 
 interface InventoryHeaderProps {
   searchTerm: string;
   onSearchChange: (value: string) => void;
-  onBarcodeDetected: (barcode: string) => void;
 }
 
 const InventoryHeader: React.FC<InventoryHeaderProps> = ({
   searchTerm,
   onSearchChange,
-  onBarcodeDetected
 }) => {
   return (
     <div className="space-y-4">
@@ -21,7 +18,6 @@ const InventoryHeader: React.FC<InventoryHeaderProps> = ({
         onSearchChange={onSearchChange}
         placeholder="Search products by name or barcode..."
       />
-      <BarcodeForm onBarcodeDetected={onBarcodeDetected} />
     </div>
   );
 };

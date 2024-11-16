@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Home, Calendar, Users, Briefcase, DollarSign, ShoppingCart, Percent,
   CheckCircle, Clock, Trello, ShoppingBag, Box, Truck, Factory, UserPlus,
-  BarChart, Settings, LogOut, User, CreditCard
+ Settings, LogOut, User, CreditCard
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { auth } from '../firebase';
@@ -103,12 +103,7 @@ const navItems: NavItem[] = [
     text: "Expenses",
     roles: ['admin', 'accountant'] 
   },
-  { 
-    to: "/reports", 
-    icon: <BarChart />, 
-    text: "Reports",
-    roles: ['admin', 'accountant'] 
-  },
+
   { 
     to: "/user-management", 
     icon: <Settings />, 

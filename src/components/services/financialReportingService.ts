@@ -1,4 +1,4 @@
-import { collection, query, getDocs, where, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 
 export interface FinancialData {
@@ -10,91 +10,66 @@ export interface FinancialData {
   cashFromInvesting: number;
   cashFromFinancing: number;
   netCashFlow: number;
+  grossProfit?: number;
+  operatingIncome?: number;
+  netIncome?: number;
 }
 
 export const fetchFinancialData = async (
+  userId: string,
   startDate: Date,
   endDate: Date
 ): Promise<FinancialData> => {
-  try {
-    // Revenue from accountsReceivable
-    const revenueQuery = query(
-      collection(db, 'accountsReceivable'),
-      where('dueDate', '>=', Timestamp.fromDate(startDate)),
-      where('dueDate', '<=', Timestamp.fromDate(endDate)),
-      where('status', '==', 'paid')
-    );
+  // Fetch sales data
+  const salesQuery = query(
+    collection(db, 'sales'),
+    where('date', '>=', Timestamp.fromDate(startDate)),
+    where('date', '<=', Timestamp.fromDate(endDate))
+  );
+  const salesDocs = await getDocs(salesQuery);
+  const revenue = salesDocs.docs.reduce((sum, doc) => sum + doc.data().total, 0);
 
-    // Expenses from accountsPayable
-    const expensesQuery = query(
-      collection(db, 'accountsPayable'),
-      where('dueDate', '>=', Timestamp.fromDate(startDate)),
-      where('dueDate', '<=', Timestamp.fromDate(endDate))
-    );
+  // Fetch expenses
+  const expensesQuery = query(
+    collection(db, 'expenses'),
+    where('date', '>=', Timestamp.fromDate(startDate)),
+    where('date', '<=', Timestamp.fromDate(endDate))
+  );
+  const expensesDocs = await getDocs(expensesQuery);
+  const expenses = expensesDocs.docs.reduce((sum, doc) => sum + doc.data().amount, 0);
 
-    // Assets collection
-    const assetsQuery = query(collection(db, 'assets'));
+  // Fetch assets
+  const assetsQuery = query(collection(db, 'assets'));
+  const assetsDocs = await getDocs(assetsQuery);
+  const assets = assetsDocs.docs.reduce((sum, doc) => sum + doc.data().currentValue, 0);
 
-    // Bank transactions for cash flow
-    const bankTransactionsQuery = query(
-      collection(db, 'bankTransactions'),
-      where('date', '>=', Timestamp.fromDate(startDate)),
-      where('date', '<=', Timestamp.fromDate(endDate))
-    );
+  // Fetch liabilities
+  const liabilitiesQuery = query(collection(db, 'liabilities'));
+  const liabilitiesDocs = await getDocs(liabilitiesQuery);
+  const liabilities = liabilitiesDocs.docs.reduce((sum, doc) => sum + doc.data().amount, 0);
 
-    // Fetch all data in parallel
-    const [
-      revenueSnapshot,
-      expensesSnapshot,
-      assetsSnapshot,
-      bankTransactionsSnapshot
-    ] = await Promise.all([
-      getDocs(revenueQuery),
-      getDocs(expensesQuery),
-      getDocs(assetsQuery),
-      getDocs(bankTransactionsQuery)
-    ]);
+  // Calculate cash flows
+  const cashFromOperations = revenue - expenses;
+  const cashFromInvesting = 0; // This would need to be calculated based on investment transactions
+  const cashFromFinancing = 0; // This would need to be calculated based on financing activities
+  const netCashFlow = cashFromOperations + cashFromInvesting + cashFromFinancing;
 
-    // Calculate totals
-    const revenue = revenueSnapshot.docs.reduce((sum, doc) => sum + (doc.data().amount || 0), 0);
-    const expenses = expensesSnapshot.docs.reduce((sum, doc) => sum + (doc.data().amount || 0), 0);
-    const assets = assetsSnapshot.docs.reduce((sum, doc) => sum + (doc.data().value || 0), 0);
-    
-    // Calculate cash flows from bank transactions
-    const bankTransactions = bankTransactionsSnapshot.docs.map(doc => ({
-      type: doc.data().type,
-      amount: doc.data().amount || 0
-    }));
+  // Calculate additional metrics
+  const grossProfit = revenue * 0.7; // Assuming 30% COGS
+  const operatingIncome = grossProfit - expenses;
+  const netIncome = operatingIncome * 0.8; // Assuming 20% tax rate
 
-    const cashFromOperations = bankTransactions
-      .filter(t => t.type === 'operating')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const cashFromInvesting = bankTransactions
-      .filter(t => t.type === 'investing')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const cashFromFinancing = bankTransactions
-      .filter(t => t.type === 'financing')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const netCashFlow = cashFromOperations + cashFromInvesting + cashFromFinancing;
-    const liabilities = expensesSnapshot.docs
-      .filter(doc => doc.data().status !== 'paid')
-      .reduce((sum, doc) => sum + (doc.data().amount || 0), 0);
-
-    return {
-      revenue,
-      expenses,
-      assets,
-      liabilities,
-      cashFromOperations,
-      cashFromInvesting,
-      cashFromFinancing,
-      netCashFlow
-    };
-  } catch (error) {
-    console.error('Error fetching financial data:', error);
-    throw error;
-  }
+  return {
+    revenue,
+    expenses,
+    assets,
+    liabilities,
+    cashFromOperations,
+    cashFromInvesting,
+    cashFromFinancing,
+    netCashFlow,
+    grossProfit,
+    operatingIncome,
+    netIncome
+  };
 };
