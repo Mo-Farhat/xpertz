@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { CartItem, Product } from '../features/PointOfSale/types';
-import { generateOrderId } from '../../lib/orderUtils';
+import { generateOrderId } from './orderUtils';
 import { db } from '../../firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 
 export const useSalesOperations = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -34,6 +34,7 @@ export const useSalesOperations = () => {
 
   const clearCart = () => {
     setCart([]);
+    setDiscount(0);
   };
 
   const calculateSubtotal = () => {
@@ -44,32 +45,47 @@ export const useSalesOperations = () => {
     const subtotal = calculateSubtotal();
     const itemDiscounts = cart.reduce((total, item) => {
       const itemTotal = item.price * item.quantity;
-      return total + (itemTotal * item.discount / 100);
+      return total + (itemTotal * (item.discount || 0) / 100);
     }, 0);
     const totalAfterItemDiscounts = subtotal - itemDiscounts;
     return totalAfterItemDiscounts - (totalAfterItemDiscounts * discount / 100);
   };
 
   const handleCheckout = async () => {
-    const orderId = generateOrderId();
-    await addDoc(collection(db, 'sales'), {
-      orderId,
-      items: cart.map(item => ({
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        discount: item.discount
-      })),
-      subtotal: calculateSubtotal(),
-      totalDiscount: discount,
-      total: calculateTotal(),
-      date: new Date(),
-    });
+    try {
+      const orderId = generateOrderId();
+      const saleData = {
+        orderId,
+        items: cart.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          discount: item.discount || 0
+        })),
+        subtotal: calculateSubtotal(),
+        totalDiscount: discount,
+        total: calculateTotal(),
+        date: new Date(),
+        status: 'completed',
+      };
 
-    clearCart();
-    setDiscount(0);
-    return orderId;
+      // Create sale record
+      await addDoc(collection(db, 'sales'), saleData);
+
+      // Update inventory
+      for (const item of cart) {
+        const productRef = doc(db, 'inventory', item.id);
+        await updateDoc(productRef, {
+          quantity: item.stock - item.quantity
+        });
+      }
+
+      clearCart();
+    } catch (error) {
+      console.error('Error during checkout:', error);
+      throw new Error('Failed to complete checkout. Please try again.');
+    }
   };
 
   return {

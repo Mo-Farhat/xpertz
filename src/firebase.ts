@@ -5,22 +5,15 @@ import { getStorage, ref, listAll } from "firebase/storage";
 import { getFunctions } from 'firebase/functions';
 
 const firebaseConfig = {
-
-  apiKey: "AIzaSyBzaoJoqBT74L0tcZTRKX_MT0o425bnTcw",
-
-  authDomain: "testing-erp-54092.firebaseapp.com",
-
-  projectId: "testing-erp-54092",
-
-  storageBucket: "testing-erp-54092.appspot.com",
-
-  messagingSenderId: "633055448503",
-
-  appId: "1:633055448503:web:978f8d20b66aa34911ac32",
-
-  measurementId: "G-WJ5V7RL6KZ"
-
+  apiKey: "AIzaSyAeyO1d8aw92E8NKoVp_Mv3VKCqLWEVtsw",
+  authDomain: "erp-system-2109c.firebaseapp.com",
+  projectId: "erp-system-2109c",
+  storageBucket: "erp-system-2109c.appspot.com",
+  messagingSenderId: "242437276043",
+  appId: "1:242437276043:web:d66197c6f039d0d9d0ef8e",
+  measurementId: "G-VT9YL1HS5V"
 };
+
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);

@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { collection, onSnapshot, query, addDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { Product, CartItem, SalesContextType, Customer, HirePurchaseAgreement } from './types';
 import { useSalesOperations } from '../../hooks/useSalesOperation';
@@ -14,7 +14,7 @@ export const useSalesContext = () => {
   return context;
 };
 
-export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =>  {
   const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -38,8 +38,9 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   } = useSalesOperations();
 
   useEffect(() => {
-    const q = query(collection(db, 'inventory'));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    // Fetch products
+    const productsQuery = query(collection(db, 'inventory'));
+    const unsubscribeProducts = onSnapshot(productsQuery, (querySnapshot) => {
       const productsData = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
@@ -52,26 +53,54 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       console.error("Error fetching products: ", error);
       setError('Failed to fetch products. Please try again.');
     });
-    return () => unsubscribe();
+
+    // Fetch customers
+    const customersQuery = query(collection(db, 'customers'));
+    const unsubscribeCustomers = onSnapshot(customersQuery, (querySnapshot) => {
+      const customersData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Customer));
+      setCustomers(customersData);
+    }, (error) => {
+      console.error("Error fetching customers: ", error);
+      setError('Failed to fetch customers. Please try again.');
+    });
+
+    return () => {
+      unsubscribeProducts();
+      unsubscribeCustomers();
+    };
   }, []);
+
+  
 
   const setHirePurchaseItemsFromCart = () => {
     setHirePurchaseItems([...cart]);
     setIsHirePurchase(true);
   };
 
-  const createHirePurchaseAgreement = async (formData: HirePurchaseAgreement): Promise<void> => {
+  const createHirePurchaseAgreement = async (formData: HirePurchaseAgreement): Promise<string> => {
     try {
-      await addDoc(collection(db, 'hirePurchaseAgreements'), {
+      const docRef = await addDoc(collection(db, 'hirePurchaseAgreements'), {
         ...formData,
         startDate: new Date(),
-        endDate: new Date(Date.now() + formData.months * 30 * 24 * 60 * 60 * 1000),
+        endDate: new Date(Date.now() + formData.term * 30 * 24 * 60 * 60 * 1000),
         status: 'active',
         createdAt: new Date(),
         updatedAt: new Date()
       });
 
+      // Update inventory quantities
+      for (const item of cart) {
+        const productRef = doc(db, 'inventory', item.id);
+        await updateDoc(productRef, {
+          quantity: item.stock - item.quantity
+        });
+      }
+
       clearCart();
+      return docRef.id;
     } catch (error) {
       console.error("Error creating hire purchase agreement: ", error);
       throw error;

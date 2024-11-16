@@ -29,16 +29,24 @@ export interface Customer {
 }
 
 export interface HirePurchaseAgreement {
-  selectedCustomer: { id: string; name: string };
+  id?: string;
+  customerId: string;
+  customerName: string;
   items: CartItem[];
-  months: number;
-  interestRate: number;
-  downPayment: number;
-  paymentFrequency: string;
   totalAmount: number;
-  amountToFinance: number;
+  downPayment: number;
+  amountFinanced: number;
+  interestRate: number;
+  term: number;
   monthlyPayment: number;
+  startDate?: Date;
+  endDate?: Date;
+  payments?: HirePurchasePayment[];
+  status?: 'active' | 'completed' | 'defaulted';
+  createdAt?: Date;
+  updatedAt?: Date;
 }
+
 
 export interface SalesContextType {
   products: Product[];
@@ -69,6 +77,7 @@ export interface SalesContextType {
   handleCheckout: () => Promise<void>;
 }
 
+
 export interface ReturnItem {
   productId: string;
   quantity: number;
@@ -96,4 +105,12 @@ export interface Sale {
   totalDiscount: number;
   total: number;
   date: Date;
+}
+
+export interface HirePurchasePayment {
+  id: string;
+  amount: number;
+  dueDate: Date;
+  paidDate?: Date;
+  status: 'pending' | 'paid' | 'overdue';
 }
