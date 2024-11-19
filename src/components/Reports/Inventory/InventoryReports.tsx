@@ -14,8 +14,6 @@ const InventoryReports = () => {
       <Tabs defaultValue="valuation" className="w-full">
         <TabsList>
           <TabsTrigger value="valuation">Inventory Valuation</TabsTrigger>
-          <TabsTrigger value="aging">Stock Aging</TabsTrigger>
-          <TabsTrigger value="turnover">Inventory Turnover</TabsTrigger>
           <TabsTrigger value="movement">Stock Movement</TabsTrigger>
           <TabsTrigger value="levels">Stock Levels</TabsTrigger>
         </TabsList>

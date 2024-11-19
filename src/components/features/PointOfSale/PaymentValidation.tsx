@@ -1,21 +1,23 @@
-import React, { useState } from 'react';
-import { Button } from "../../ui/button";
-import { Input } from "../../ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
+import React, { useState, useRef } from 'react';
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { useSalesContext } from './SalesContext';
-import { CreditCard, DollarSign, UserPlus } from 'lucide-react';
+import { CreditCard, DollarSign, UserPlus, Printer } from 'lucide-react';
 import Numpad from './Numpad';
+import Receipt from './Receipt';
 import { useAuth } from '../../../contexts/AuthContext';
 import { addDoc, collection } from 'firebase/firestore';
 import { db } from '../../../firebase';
-import { useToast } from '../../hooks/use-toast';
+import { useToast } from "../../hooks/use-toast";
+import { printReceipt } from './printUtils';
 
 interface PaymentValidationProps {
   onBack: () => void;
 }
 
 const PaymentValidation: React.FC<PaymentValidationProps> = ({ onBack }) => {
-  const { calculateTotal, cart } = useSalesContext();
+  const { calculateTotal, cart, paymentMethod, handleCheckout } = useSalesContext();
   const { user } = useAuth();
   const { toast } = useToast();
   const [paymentMethods, setPaymentMethods] = useState({
@@ -24,6 +26,7 @@ const PaymentValidation: React.FC<PaymentValidationProps> = ({ onBack }) => {
     customerAccount: 0
   });
   const [activeMethod, setActiveMethod] = useState<keyof typeof paymentMethods>('cash');
+  const receiptRef = useRef<HTMLDivElement>(null);
 
   const totalAmount = calculateTotal();
   const totalPaid = Object.values(paymentMethods).reduce((sum, value) => sum + value, 0);
@@ -73,6 +76,16 @@ const PaymentValidation: React.FC<PaymentValidationProps> = ({ onBack }) => {
     }
   };
 
+  const handlePrint = () => {
+    if (receiptRef.current) {
+      printReceipt(receiptRef.current);
+      toast({
+        title: "Success",
+        description: "Receipt sent to printer",
+      });
+    }
+  };
+
   const handleValidate = async () => {
     if (totalPaid < totalAmount) {
       toast({
@@ -106,6 +119,8 @@ const PaymentValidation: React.FC<PaymentValidationProps> = ({ onBack }) => {
         });
       }
 
+      await handleCheckout();
+      handlePrint();
       toast({
         title: "Success",
         description: "Payment recorded successfully"
@@ -160,47 +175,52 @@ const PaymentValidation: React.FC<PaymentValidationProps> = ({ onBack }) => {
                 onFocus={() => setActiveMethod('customerAccount')}
               />
             </div>
+            <Numpad
+              onNumberClick={handleNumpadClick}
+              onDiscountClick={() => {}}
+              onBackspaceClick={() => {
+                const currentValue = paymentMethods[activeMethod].toString();
+                handlePaymentChange(activeMethod, currentValue.slice(0, -1));
+              }}
+              onEnterClick={handleValidate}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" onClick={onBack}>Back</Button>
+              <Button onClick={handleValidate} disabled={totalPaid < totalAmount}>
+                Complete Payment
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
+
       <div>
         <Card>
-          <CardHeader>
-            <CardTitle>Payment Summary</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Receipt Preview</CardTitle>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handlePrint}
+              className="h-8 w-8"
+            >
+              <Printer className="h-4 w-4" />
+            </Button>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-4xl font-bold text-green-600">{totalAmount.toFixed(2)} Rs</div>
-            <div className="bg-green-100 p-4 rounded-md">
-              <div className="font-semibold">Change</div>
-              <div className="text-2xl font-bold text-green-600">{change.toFixed(2)} Rs</div>
+          <CardContent>
+            <div ref={receiptRef}>
+              <Receipt
+                items={cart}
+                subtotal={totalAmount}
+                total={totalAmount}
+                paymentMethod={paymentMethod}
+                paymentAmount={totalPaid}
+                change={change}
+                date={new Date()}
+              />
             </div>
-            {Object.entries(paymentMethods).map(([method, amount]) => (
-              amount > 0 && (
-                <div key={method} className="flex justify-between items-center">
-                  <span className="capitalize">{method}</span>
-                  <span>{amount.toFixed(2)} Rs</span>
-                </div>
-              )
-            ))}
           </CardContent>
         </Card>
-        <div className="mt-4">
-          <Numpad 
-            onNumberClick={handleNumpadClick}
-            onDiscountClick={() => {}}
-            onBackspaceClick={() => {
-              const currentValue = paymentMethods[activeMethod].toString();
-              handlePaymentChange(activeMethod, currentValue.slice(0, -1));
-            }}
-            onEnterClick={handleValidate}
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-2 mt-4">
-          <Button variant="outline" onClick={onBack}>Back</Button>
-          <Button onClick={handleValidate} disabled={totalPaid < totalAmount}>
-            Validate
-          </Button>
-        </div>
       </div>
     </div>
   );

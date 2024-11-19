@@ -144,11 +144,8 @@ const Inventory: React.FC = () => {
       <Tabs defaultValue="inventory" className="w-full">
         <TabsList>
           <TabsTrigger value="inventory">Inventory Management</TabsTrigger>
-          <TabsTrigger value="valuation">Inventory Valuation</TabsTrigger>
-          <TabsTrigger value="aging">Stock Aging</TabsTrigger>
-          <TabsTrigger value="turnover">Inventory Turnover</TabsTrigger>
+          <TabsTrigger value="valuation">Inventory Valuation</TabsTrigger> 
           <TabsTrigger value="movement">Stock Movement</TabsTrigger>
-          <TabsTrigger value="levels">Stock Levels</TabsTrigger>
         </TabsList>
         
         <TabsContent value="inventory">
