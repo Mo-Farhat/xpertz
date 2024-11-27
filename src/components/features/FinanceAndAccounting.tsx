@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Book, DollarSign, CreditCard, FileText, BarChart2, Briefcase, Percent, PieChart } from 'lucide-react';
+import { Book, DollarSign, CreditCard, FileText, BarChart2, Briefcase, Percent, PieChart, CheckSquare } from 'lucide-react';
 import GeneralLedger from './FinanceAndAccounting/GeneralLedger';
 import AccountsPayable from './FinanceAndAccounting/AccountsPayable';
 import AccountsReceivable from './FinanceAndAccounting/AccountsRecievable/AccountsReceivable';
@@ -8,10 +8,10 @@ import AssetManagement from './FinanceAndAccounting/AssetManagement';
 import BankReconciliation from './FinanceAndAccounting/BankReconciliation';
 import TaxManagement from './FinanceAndAccounting/TaxManagement';
 import FinancialReporting from './FinanceAndAccounting/FinancialReporting';
+import ChequeManagement from './FinanceAndAccounting/Cheques/ChequeManagement';
 
 const FinanceAndAccounting: React.FC = () => {
   const [activeTab, setActiveTab] = useState('generalLedger');
-  const [error, setError] = useState<string | null>(null);
 
   const tabs = [
     { id: 'generalLedger', name: 'General Ledger', icon: <Book /> },
@@ -20,43 +20,35 @@ const FinanceAndAccounting: React.FC = () => {
     { id: 'expenseManagement', name: 'Expense Management', icon: <FileText /> },
     { id: 'assetManagement', name: 'Asset Management', icon: <Briefcase /> },
     { id: 'bankReconciliation', name: 'Bank Reconciliation', icon: <BarChart2 /> },
+    { id: 'chequeManagement', name: 'Cheque Management', icon: <CheckSquare /> },
     { id: 'taxManagement', name: 'Tax Management', icon: <Percent /> },
     { id: 'financialReporting', name: 'Financial Reporting', icon: <PieChart /> },
   ];
 
   const renderComponent = () => {
-    try {
-      switch (activeTab) {
-        case 'generalLedger':
-          return <GeneralLedger />;
-        case 'accountsPayable':
-          return <AccountsPayable />;
-        case 'accountsReceivable':
-          return <AccountsReceivable />;
-        case 'expenseManagement':
-          return <ExpenseManagement />;
-        case 'assetManagement':
-          return <AssetManagement />;
-        case 'bankReconciliation':
-          return <BankReconciliation />;
-        case 'taxManagement':
-          return <TaxManagement />;
-        case 'financialReporting':
-          return <FinancialReporting />;
-        default:
-          return <GeneralLedger />;
-      }
-    } catch (err) {
-      console.error("Error rendering component:", err);
-      setError("An error occurred while loading the component. Please try again.");
-      return null;
+    switch (activeTab) {
+      case 'generalLedger':
+        return <GeneralLedger />;
+      case 'accountsPayable':
+        return <AccountsPayable />;
+      case 'accountsReceivable':
+        return <AccountsReceivable />;
+      case 'expenseManagement':
+        return <ExpenseManagement />;
+      case 'assetManagement':
+        return <AssetManagement />;
+      case 'bankReconciliation':
+        return <BankReconciliation />;
+      case 'chequeManagement':
+        return <ChequeManagement />;
+      case 'taxManagement':
+        return <TaxManagement />;
+      case 'financialReporting':
+        return <FinancialReporting />;
+      default:
+        return <GeneralLedger />;
     }
   };
-
-  useEffect(() => {
-    // Reset error when changing tabs
-    setError(null);
-  }, [activeTab]);
 
   return (
     <div className="p-4">
@@ -78,11 +70,7 @@ const FinanceAndAccounting: React.FC = () => {
         ))}
       </div>
       <div className="bg-white rounded-lg shadow p-6">
-        {error ? (
-          <div className="text-red-500 mb-4">{error}</div>
-        ) : (
-          renderComponent()
-        )}
+        {renderComponent()}
       </div>
     </div>
   );

@@ -5,6 +5,8 @@ import { Plus, Download, Edit, Save } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import CustomFieldsManager from '../../shared/CustomFieldsManager';
+import { CustomField } from '../../shared/CustomFieldsManager';
 
 interface Invoice {
   id: string;

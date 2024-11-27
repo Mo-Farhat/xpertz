@@ -3,7 +3,6 @@ import { Users, MessageSquare, Mail, FileText } from 'lucide-react';
 import LeadManagement from './CRM/LeadManagement';
 import CustomerDatabase from './CRM/CustomerDatabase';
 import CustomerService from './CRM/CustomerService';
-import MarketingAutomation from './CRM/MarketingAutomation';
 import QuotationsContracts from './CRM/QuotationsContracts';
 
 const CRM: React.FC = () => {
@@ -13,7 +12,6 @@ const CRM: React.FC = () => {
     { id: 'leads', name: 'Lead Management', icon: <Users /> },
     { id: 'customers', name: 'Customer Database', icon: <Users /> },
     { id: 'service', name: 'Customer Service', icon: <MessageSquare /> },
-    { id: 'marketing', name: 'Marketing Automation', icon: <Mail /> },
     { id: 'quotations', name: 'Quotations & Contracts', icon: <FileText /> },
   ];
 
@@ -25,8 +23,6 @@ const CRM: React.FC = () => {
         return <CustomerDatabase />;
       case 'service':
         return <CustomerService />;
-      case 'marketing':
-        return <MarketingAutomation />;
       case 'quotations':
         return <QuotationsContracts />;
       default:

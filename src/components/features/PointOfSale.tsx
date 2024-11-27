@@ -35,7 +35,7 @@ const PointOfSale: React.FC = () => {
     <div className="p-4">
       <h2 className="text-2xl font-bold mb-4">Point of Sale</h2>
       <div className="flex mb-4 space-x-2">
-        <button onClick={() => setActiveTab('sales')} className={`px-4 py-2 rounded ${activeTab === 'sales' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>Sales</button>
+        <button onClick={() => setActiveTab('sales')} className={`px-4 py-2 rounded ${activeTab === 'sales' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>Checkout</button>
         <button onClick={() => setActiveTab('inventory')} className={`px-4 py-2 rounded ${activeTab === 'inventory' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>Inventory</button>
         <button onClick={() => setActiveTab('customers')} className={`px-4 py-2 rounded ${activeTab === 'customers' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>Customers</button>
         <button onClick={() => setActiveTab('accounting')} className={`px-4 py-2 rounded ${activeTab === 'accounting' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>Accounting</button>

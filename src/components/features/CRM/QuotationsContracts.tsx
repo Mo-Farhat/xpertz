@@ -1,217 +1,152 @@
-import React, { useState, useEffect } from 'react';
-import { collection, addDoc, onSnapshot, query, orderBy, updateDoc, doc, deleteDoc } from 'firebase/firestore';
-import { db } from '../../../firebase';
-import { Plus, Download, Edit, Trash2, FileText, DollarSign } from 'lucide-react';
-
-interface QuotationContract {
-  id: string;
-  type: 'quotation' | 'contract';
-  customerName: string;
-  amount: number;
-  status: 'draft' | 'sent' | 'accepted' | 'rejected';
-  validUntil: Date;
-  content: string;
-  createdAt: Date;
-}
+import React, { useState, useRef } from 'react';
+import { Download } from 'lucide-react';
+import { Button } from "../../../components/ui/button";
+import { QuotationContract, NewQuotationContract } from './QuotationsContracts/types';
+import QuotationContractForm from './QuotationsContracts/QuotationContractForm';
+import QuotationContractTable from './QuotationsContracts/QuotationContractTable';
+import QuotationPrintView from './QuotationsContracts/QuotationPrintView';
+import { useQuotationDocuments } from './QuotationsContracts/useQuotationDocument';
+import { useQuotationOperations } from './QuotationsContracts/useQuotationOperation';
+import { useToast } from "../../hooks/use-toast";
 
 const QuotationsContracts: React.FC = () => {
-  const [documents, setDocuments] = useState<QuotationContract[]>([]);
-  const [newDocument, setNewDocument] = useState<Omit<QuotationContract, 'id' | 'createdAt'>>({
-    type: 'quotation',
-    customerName: '',
-    amount: 0,
-    status: 'draft',
-    validUntil: new Date(),
-    content: '',
-  });
+  const documents = useQuotationDocuments();
+  const { handleAddDocument, handleUpdateDocument, handleDeleteDocument } = useQuotationOperations();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<QuotationContract | null>(null);
+  const printRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
-  useEffect(() => {
-    const q = query(collection(db, 'quotationsContracts'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const documentsData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        validUntil: doc.data().validUntil.toDate(),
-        createdAt: doc.data().createdAt.toDate(),
-      } as QuotationContract));
-      setDocuments(documentsData);
-    });
-    return unsubscribe;
-  }, []);
-
-  const handleAddDocument = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>, formData: NewQuotationContract) => {
     e.preventDefault();
+    console.log('Form submission initiated with data:', formData);
+    
     try {
-      await addDoc(collection(db, 'quotationsContracts'), {
-        ...newDocument,
-        createdAt: new Date(),
-      });
-      setNewDocument({
-        type: 'quotation',
-        customerName: '',
-        amount: 0,
-        status: 'draft',
-        validUntil: new Date(),
-        content: '',
+      await handleAddDocument(formData);
+      toast({
+        title: "Success",
+        description: "Document created successfully"
       });
     } catch (error) {
-      console.error("Error adding document: ", error);
-    }
-  };
-
-  const handleUpdateDocument = async (id: string, updatedDocument: Partial<QuotationContract>) => {
-    try {
-      await updateDoc(doc(db, 'quotationsContracts', id), updatedDocument);
-      setEditingId(null);
-    } catch (error) {
-      console.error("Error updating document: ", error);
-    }
-  };
-
-  const handleDeleteDocument = async (id: string) => {
-    try {
-      await deleteDoc(doc(db, 'quotationsContracts', id));
-    } catch (error) {
-      console.error("Error deleting document: ", error);
+      console.error('Error in handleSubmit:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create document",
+        variant: "destructive"
+      });
     }
   };
 
   const handleExport = () => {
-    const csvContent = documents.map(doc => 
-      `${doc.type},${doc.customerName},${doc.amount},${doc.status},${doc.validUntil.toISOString()},${doc.content},${doc.createdAt.toISOString()}`
-    ).join('\n');
+    const headers = [
+      'Type', 'Customer Name', 'Email', 'Phone', 'Amount', 'Status',
+      'Valid Until', 'Priority', 'Category', 'Assigned To', 'Created At'
+    ].join(',');
+
+    const csvContent = [
+      headers,
+      ...documents.map(doc => [
+        doc.type,
+        doc.customerName,
+        doc.customerEmail,
+        doc.customerPhone,
+        doc.amount,
+        doc.status,
+        doc.validUntil.toISOString(),
+        doc.priority,
+        doc.category,
+        doc.assignedTo,
+        doc.createdAt.toISOString()
+      ].join(','))
+    ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', 'quotations_contracts.csv');
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'quotations_contracts.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handlePrint = (document: QuotationContract) => {
+    console.log('Print initiated for document:', document.id);
+    setSelectedDocument(document);
+    
+    setTimeout(() => {
+      if (printRef.current) {
+        console.log('Print ref found, preparing print window');
+        const printWindow = window.open('', '', 'width=800,height=600');
+        if (printWindow) {
+          printWindow.document.write('<html><head><title>Print Quotation</title>');
+          printWindow.document.write('<style>');
+          printWindow.document.write(`
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { padding: 8px; border-bottom: 1px solid #ddd; }
+            th { text-align: left; }
+            .text-right { text-align: right; }
+          `);
+          printWindow.document.write('</style></head><body>');
+          printWindow.document.write(printRef.current.innerHTML);
+          printWindow.document.write('</body></html>');
+          printWindow.document.close();
+          printWindow.focus();
+          
+          setTimeout(() => {
+            console.log('Initiating print operation');
+            printWindow.print();
+            printWindow.close();
+          }, 250);
+        } else {
+          console.error('Failed to open print window');
+          toast({
+            title: "Error",
+            description: "Failed to open print window",
+            variant: "destructive",
+          });
+        }
+        
+        toast({
+          title: "Success",
+          description: "Document sent to printer",
+        });
+      } else {
+        console.error('Print ref not found');
+        toast({
+          title: "Error",
+          description: "Failed to prepare document for printing",
+          variant: "destructive",
+        });
+      }
+    }, 100);
   };
 
   return (
-    <div>
-      <h3 className="text-xl font-semibold mb-4">Quotations & Contracts</h3>
-      <form onSubmit={handleAddDocument} className="mb-4">
-        <div className="grid grid-cols-2 gap-4">
-          <select
-            value={newDocument.type}
-            onChange={(e) => setNewDocument({ ...newDocument, type: e.target.value as 'quotation' | 'contract' })}
-            className="p-2 border rounded"
-          >
-            <option value="quotation">Quotation</option>
-            <option value="contract">Contract</option>
-          </select>
-          <input
-            type="text"
-            placeholder="Customer Name"
-            value={newDocument.customerName}
-            onChange={(e) => setNewDocument({ ...newDocument, customerName: e.target.value })}
-            className="p-2 border rounded"
-          />
-          <input
-            type="number"
-            placeholder="Amount"
-            value={newDocument.amount}
-            onChange={(e) => setNewDocument({ ...newDocument, amount: parseFloat(e.target.value) })}
-            className="p-2 border rounded"
-          />
-          <select
-            value={newDocument.status}
-            onChange={(e) => setNewDocument({ ...newDocument, status: e.target.value as QuotationContract['status'] })}
-            className="p-2 border rounded"
-          >
-            <option value="draft">Draft</option>
-            <option value="sent">Sent</option>
-            <option value="accepted">Accepted</option>
-            <option value="rejected">Rejected</option>
-          </select>
-          <input
-            type="date"
-            value={newDocument.validUntil.toISOString().split('T')[0]}
-            onChange={(e) => setNewDocument({ ...newDocument, validUntil: new Date(e.target.value) })}
-            className="p-2 border rounded"
-          />
-          <textarea
-            placeholder="Document Content"
-            value={newDocument.content}
-            onChange={(e) => setNewDocument({ ...newDocument, content: e.target.value })}
-            className="p-2 border rounded col-span-2"
-          />
-        </div>
-        <button type="submit" className="mt-4 bg-blue-500 text-white p-2 rounded hover:bg-blue-600">
-          <Plus size={24} /> Add Document
-        </button>
-      </form>
-      <button
-        onClick={handleExport}
-        className="mb-4 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center"
-      >
-        <Download size={18} className="mr-2" />
-        Export CSV
-      </button>
-      <table className="w-full bg-white shadow-md rounded">
-        <thead>
-          <tr className="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
-            <th className="py-3 px-6 text-left">Type</th>
-            <th className="py-3 px-6 text-left">Customer</th>
-            <th className="py-3 px-6 text-right">Amount</th>
-            <th className="py-3 px-6 text-left">Status</th>
-            <th className="py-3 px-6 text-left">Valid Until</th>
-            <th className="py-3 px-6 text-center">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="text-gray-600 text-sm font-light">
-          {documents.map((doc) => (
-            <tr key={doc.id} className="border-b border-gray-200 hover:bg-gray-100">
-              <td className="py-3 px-6 text-left whitespace-nowrap">
-                <div className="flex items-center">
-                  <FileText size={18} className="mr-2" />
-                  {doc.type}
-                </div>
-              </td>
-              <td className="py-3 px-6 text-left">{doc.customerName}</td>
-              <td className="py-3 px-6 text-right">
-                <div className="flex items-center justify-end">
-                  <DollarSign size={18} className="mr-2" />
-                  {doc.amount.toFixed(2)}
-                </div>
-              </td>
-              <td className="py-3 px-6 text-left">
-                <span className={`py-1 px-3 rounded-full text-xs ${
-                  doc.status === 'draft' ? 'bg-gray-200 text-gray-800' :
-                  doc.status === 'sent' ? 'bg-yellow-200 text-yellow-800' :
-                  doc.status === 'accepted' ? 'bg-green-200 text-green-800' :
-                  'bg-red-200 text-red-800'
-                }`}>
-                  {doc.status}
-                </span>
-              </td>
-              <td className="py-3 px-6 text-left">{doc.validUntil.toLocaleDateString()}</td>
-              <td className="py-3 px-6 text-center">
-                <button
-                  onClick={() => setEditingId(doc.id)}
-                  className="text-blue-500 hover:text-blue-700 mr-2"
-                >
-                  <Edit size={18} />
-                </button>
-                <button
-                  onClick={() => handleDeleteDocument(doc.id)}
-                  className="text-red-500 hover:text-red-700"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Quotations & Contracts</h2>
+        <Button onClick={handleExport} variant="outline" className="flex items-center gap-2">
+          <Download className="h-4 w-4" />
+          Export CSV
+        </Button>
+      </div>
+
+      <QuotationContractForm onSubmit={handleSubmit} />
+
+      <QuotationContractTable
+        documents={documents}
+        onEdit={setEditingId}
+        onDelete={handleDeleteDocument}
+        onPrint={handlePrint}
+      />
+
+      <div className="hidden">
+        {selectedDocument && (
+          <QuotationPrintView ref={printRef} document={selectedDocument} />
+        )}
+      </div>
     </div>
   );
 };

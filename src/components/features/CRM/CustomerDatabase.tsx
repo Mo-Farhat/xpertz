@@ -1,32 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, onSnapshot, query, orderBy, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
-import { Plus, Download, Edit, Trash2, User, Phone, Mail } from 'lucide-react';
-
-interface Customer {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  company: string;
-  address: string;
-  notes: string;
-  createdAt: Date;
-}
+import { Download } from 'lucide-react';
+import { Button } from "../../ui/button";
+import { useToast } from "../../hooks/use-toast";
+import { Customer, CustomerFormData } from './CustomerDatabase/types';
+import CustomerForm from './CustomerDatabase/CustomerForm';
+import CustomerTable from './CustomerDatabase/CustomerTable';
 
 const CustomerDatabase: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [newCustomer, setNewCustomer] = useState<Omit<Customer, 'id' | 'createdAt'>>({
+  const [newCustomer, setNewCustomer] = useState<CustomerFormData>({
     name: '',
     email: '',
     phone: '',
     company: '',
     address: '',
     notes: '',
+    type: 'regular',
+    status: 'active',
+    loyaltyPoints: 0,
+    hirePurchaseCustomer: false
   });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
+    console.log('Setting up customers listener');
     const q = query(collection(db, 'customers'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const customersData = querySnapshot.docs.map(doc => ({
@@ -34,6 +34,7 @@ const CustomerDatabase: React.FC = () => {
         ...doc.data(),
         createdAt: doc.data().createdAt.toDate(),
       } as Customer));
+      console.log('Received customers data:', customersData);
       setCustomers(customersData);
     });
     return unsubscribe;
@@ -42,10 +43,25 @@ const CustomerDatabase: React.FC = () => {
   const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await addDoc(collection(db, 'customers'), {
-        ...newCustomer,
-        createdAt: new Date(),
-      });
+      if (editingId) {
+        console.log('Updating customer:', editingId, newCustomer);
+        await updateDoc(doc(db, 'customers', editingId), newCustomer);
+        setEditingId(null);
+        toast({
+          title: "Success",
+          description: "Customer updated successfully",
+        });
+      } else {
+        console.log('Adding new customer:', newCustomer);
+        await addDoc(collection(db, 'customers'), {
+          ...newCustomer,
+          createdAt: new Date(),
+        });
+        toast({
+          title: "Success",
+          description: "Customer added successfully",
+        });
+      }
       setNewCustomer({
         name: '',
         email: '',
@@ -53,32 +69,59 @@ const CustomerDatabase: React.FC = () => {
         company: '',
         address: '',
         notes: '',
+        type: 'regular',
+        status: 'active',
+        loyaltyPoints: 0,
+        hirePurchaseCustomer: false
       });
     } catch (error) {
-      console.error("Error adding customer: ", error);
+      console.error("Error managing customer: ", error);
+      toast({
+        title: "Error",
+        description: "Failed to manage customer",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleUpdateCustomer = async (id: string, updatedCustomer: Partial<Customer>) => {
-    try {
-      await updateDoc(doc(db, 'customers', id), updatedCustomer);
-      setEditingId(null);
-    } catch (error) {
-      console.error("Error updating customer: ", error);
-    }
+  const handleEditCustomer = (customer: Customer) => {
+    console.log('Editing customer:', customer);
+    setEditingId(customer.id);
+    setNewCustomer({
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone,
+      company: customer.company,
+      address: customer.address,
+      notes: customer.notes,
+      type: customer.type,
+      status: customer.status,
+      loyaltyPoints: customer.loyaltyPoints,
+      hirePurchaseCustomer: customer.hirePurchaseCustomer
+    });
   };
 
   const handleDeleteCustomer = async (id: string) => {
     try {
+      console.log('Deleting customer:', id);
       await deleteDoc(doc(db, 'customers', id));
+      toast({
+        title: "Success",
+        description: "Customer deleted successfully",
+      });
     } catch (error) {
       console.error("Error deleting customer: ", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete customer",
+        variant: "destructive",
+      });
     }
   };
 
   const handleExport = () => {
     const csvContent = customers.map(customer => 
-      `${customer.name},${customer.email},${customer.phone},${customer.company},${customer.address},${customer.notes},${customer.createdAt.toISOString()}`
+      `${customer.name},${customer.email},${customer.phone},${customer.company},${customer.type},${customer.address},${customer.notes},${customer.createdAt.toISOString()}`
     ).join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -95,115 +138,27 @@ const CustomerDatabase: React.FC = () => {
   };
 
   return (
-    <div>
-      <h3 className="text-xl font-semibold mb-4">Customer Database</h3>
-      <form onSubmit={handleAddCustomer} className="mb-4">
-        <div className="grid grid-cols-2 gap-4">
-          <input
-            type="text"
-            placeholder="Name"
-            value={newCustomer.name}
-            onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
-            className="p-2 border rounded"
-          />
-          <input
-            type="email"
-            placeholder="Email"
-            value={newCustomer.email}
-            onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
-            className="p-2 border rounded"
-          />
-          <input
-            type="tel"
-            placeholder="Phone"
-            value={newCustomer.phone}
-            onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
-            className="p-2 border rounded"
-          />
-          <input
-            type="text"
-            placeholder="Company"
-            value={newCustomer.company}
-            onChange={(e) => setNewCustomer({ ...newCustomer, company: e.target.value })}
-            className="p-2 border rounded"
-          />
-          <input
-            type="text"
-            placeholder="Address"
-            value={newCustomer.address}
-            onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })}
-            className="p-2 border rounded"
-          />
-          <textarea
-            placeholder="Notes"
-            value={newCustomer.notes}
-            onChange={(e) => setNewCustomer({ ...newCustomer, notes: e.target.value })}
-            className="p-2 border rounded"
-          />
-        </div>
-        <button type="submit" className="mt-4 bg-blue-500 text-white p-2 rounded hover:bg-blue-600">
-          <Plus size={24} /> Add Customer
-        </button>
-      </form>
-      <button
-        onClick={handleExport}
-        className="mb-4 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center"
-      >
-        <Download size={18} className="mr-2" />
-        Export CSV
-      </button>
-      <table className="w-full bg-white shadow-md rounded">
-        <thead>
-          <tr className="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
-            <th className="py-3 px-6 text-left">Name</th>
-            <th className="py-3 px-6 text-left">Email</th>
-            <th className="py-3 px-6 text-left">Phone</th>
-            <th className="py-3 px-6 text-left">Company</th>
-            <th className="py-3 px-6 text-left">Address</th>
-            <th className="py-3 px-6 text-center">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="text-gray-600 text-sm font-light">
-          {customers.map((customer) => (
-            <tr key={customer.id} className="border-b border-gray-200 hover:bg-gray-100">
-              <td className="py-3 px-6 text-left whitespace-nowrap">
-                <div className="flex items-center">
-                  <User size={18} className="mr-2" />
-                  {customer.name}
-                </div>
-              </td>
-              <td className="py-3 px-6 text-left">
-                <div className="flex items-center">
-                  <Mail size={18} className="mr-2" />
-                  {customer.email}
-                </div>
-              </td>
-              <td className="py-3 px-6 text-left">
-                <div className="flex items-center">
-                  <Phone size={18} className="mr-2" />
-                  {customer.phone}
-                </div>
-              </td>
-              <td className="py-3 px-6 text-left">{customer.company}</td>
-              <td className="py-3 px-6 text-left">{customer.address}</td>
-              <td className="py-3 px-6 text-center">
-                <button
-                  onClick={() => setEditingId(customer.id)}
-                  className="text-blue-500 hover:text-blue-700 mr-2"
-                >
-                  <Edit size={18} />
-                </button>
-                <button
-                  onClick={() => handleDeleteCustomer(customer.id)}
-                  className="text-red-500 hover:text-red-700"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-xl font-semibold">Customer Database</h3>
+        <Button onClick={handleExport} className="bg-green-500 hover:bg-green-600">
+          <Download className="mr-2 h-4 w-4" />
+          Export CSV
+        </Button>
+      </div>
+
+      <CustomerForm
+        customer={newCustomer}
+        onCustomerChange={setNewCustomer}
+        onSubmit={handleAddCustomer}
+        isEditing={!!editingId}
+      />
+
+      <CustomerTable
+        customers={customers}
+        onEdit={handleEditCustomer}
+        onDelete={handleDeleteCustomer}
+      />
     </div>
   );
 };

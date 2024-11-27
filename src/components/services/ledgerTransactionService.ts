@@ -70,3 +70,124 @@ export const createAPTransaction = async (userId: string, {
     moduleId: invoiceNumber
   });
 };
+
+export const createARTransaction = async (userId: string, {
+  invoiceNumber,
+  customerName,
+  amount,
+  date,
+  description
+}: {
+  invoiceNumber: string;
+  customerName: string;
+  amount: number;
+  date: Date;
+  description: string;
+}) => {
+  // Create AR entry
+  await createLedgerTransaction(userId, {
+    date,
+    description: `AR Invoice: ${invoiceNumber} - ${customerName}`,
+    accountNumber: '1200',
+    accountName: 'Accounts Receivable',
+    category: 'AR',
+    debit: amount,
+    credit: 0,
+    reference: invoiceNumber,
+    status: 'pending',
+    moduleType: 'AR',
+    moduleId: invoiceNumber
+  });
+
+  // Create corresponding revenue entry
+  await createLedgerTransaction(userId, {
+    date,
+    description: `Revenue: ${description}`,
+    accountNumber: '4000',
+    accountName: 'Revenue',
+    category: 'AR',
+    debit: 0,
+    credit: amount,
+    reference: invoiceNumber,
+    status: 'pending',
+    moduleType: 'AR',
+    moduleId: invoiceNumber
+  });
+};
+
+export const createInventoryTransaction = async (userId: string, {
+  productId,
+  productName,
+  quantity,
+  cost,
+  type,
+  reference
+}: {
+  productId: string;
+  productName: string;
+  quantity: number;
+  cost: number;
+  type: 'purchase' | 'sale';
+  reference: string;
+}) => {
+  const totalCost = quantity * cost;
+  const date = new Date();
+
+  if (type === 'purchase') {
+    await createLedgerTransaction(userId, {
+      date,
+      description: `Inventory Purchase: ${productName}`,
+      accountNumber: '1300',
+      accountName: 'Inventory',
+      category: 'INV',
+      debit: totalCost,
+      credit: 0,
+      reference,
+      status: 'pending',
+      moduleType: 'INV',
+      moduleId: productId
+    });
+  } else {
+    await createLedgerTransaction(userId, {
+      date,
+      description: `Inventory Sale: ${productName}`,
+      accountNumber: '1300',
+      accountName: 'Inventory',
+      category: 'INV',
+      debit: 0,
+      credit: totalCost,
+      reference,
+      status: 'pending',
+      moduleType: 'INV',
+      moduleId: productId
+    });
+  }
+};
+
+export const createAssetTransaction = async (userId: string, {
+  assetId,
+  assetName,
+  cost,
+  reference
+}: {
+  assetId: string;
+  assetName: string;
+  cost: number;
+  reference: string;
+}) => {
+  const date = new Date();
+
+  await createLedgerTransaction(userId, {
+    date,
+    description: `Asset Purchase: ${assetName}`,
+    accountNumber: '1500',
+    accountName: 'Fixed Assets',
+    category: 'ASSET',
+    debit: cost,
+    credit: 0,
+    reference,
+    status: 'pending',
+    moduleType: 'ASSET',
+    moduleId: assetId
+  });
+};
