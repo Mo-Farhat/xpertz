@@ -5,7 +5,7 @@ import { Badge } from "../../../../components/ui/badge";
 import { Button } from "../../../../components/ui/button";
 import { Printer } from 'lucide-react';
 import { Cheque } from './types';
-import { printReceipt } from '../../../features/PointOfSale/printUtils';
+import { printReceipt } from '../../PointOfSale/printUtils';
 import ChequeReceipt from './ChequeReceipt';
 
 interface ChequeTableProps {
@@ -53,6 +53,7 @@ const ChequeTable: React.FC<ChequeTableProps> = ({ cheques, isLoading }) => {
             <TableHead>Type</TableHead>
             <TableHead>Payee</TableHead>
             <TableHead>Bank</TableHead>
+            <TableHead>Issued By</TableHead>
             <TableHead className="text-right">Amount</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Memo</TableHead>
@@ -71,6 +72,7 @@ const ChequeTable: React.FC<ChequeTableProps> = ({ cheques, isLoading }) => {
               </TableCell>
               <TableCell>{cheque.payeeName}</TableCell>
               <TableCell>{cheque.bankName}</TableCell>
+              <TableCell>{cheque.issuedBy}</TableCell>
               <TableCell className="text-right">${cheque.amount.toFixed(2)}</TableCell>
               <TableCell>
                 <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(cheque.status)}`}>

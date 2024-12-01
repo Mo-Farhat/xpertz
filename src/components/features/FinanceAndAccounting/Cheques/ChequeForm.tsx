@@ -15,6 +15,7 @@ const ChequeForm = () => {
     date: new Date(),
     payeeName: '',
     bankName: '',
+    issuedBy: '',
     status: 'pending',
     type: 'incoming',
     memo: ''
@@ -36,6 +37,7 @@ const ChequeForm = () => {
         date: new Date(),
         payeeName: '',
         bankName: '',
+        issuedBy: '',
         status: 'pending',
         type: 'incoming',
         memo: ''
@@ -96,6 +98,14 @@ const ChequeForm = () => {
           placeholder="Bank Name"
           value={formData.bankName}
           onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+          required
+        />
+
+        <Input
+          type="text"
+          placeholder="Issued By"
+          value={formData.issuedBy}
+          onChange={(e) => setFormData({ ...formData, issuedBy: e.target.value })}
           required
         />
         

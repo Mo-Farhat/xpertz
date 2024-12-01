@@ -1,4 +1,3 @@
-import { ReactNode } from 'react';
 import { LucideIcon } from 'lucide-react';
 
 export interface WidgetData {
@@ -6,7 +5,10 @@ export interface WidgetData {
   title: string;
   value: string | number;
   icon: LucideIcon;
-
+  subTitle: string;
+  subValue: string | number;
+  accumulated: string | number;
+  yearToDate: string | number;
 }
 
 export interface SalesData {
