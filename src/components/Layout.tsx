@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Home, Calendar, Users, Briefcase, DollarSign, ShoppingCart, Percent,
   CheckCircle, Clock, Trello, ShoppingBag, Box, Truck, Factory, UserPlus,
- Settings, LogOut, User, CreditCard
+  Settings, LogOut, User, CreditCard
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { auth } from '../firebase';
@@ -21,101 +21,25 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { to: "/dashboard", icon: <Home />, text: "Dashboard" }, // Available to all
-  { to: "/contacts", icon: <Users />, text: "Contacts" }, // Available to all
-  { to: "/crm", icon: <Briefcase />, text: "CRM" }, // Available to all
-  { to: "/point-of-sale", icon: <ShoppingCart />, text: "Point of Sale" }, // Available to all
-  { 
-    to: "/calendar", 
-    icon: <Calendar />, 
-    text: "Calendar",
-    roles: ['admin'] 
-  },
-  { 
-    to: "/sales", 
-    icon: <DollarSign />, 
-    text: "Sales",
-    roles: ['admin', 'accountant'] 
-  },
-  { 
-    to: "/finance-and-accounting", 
-    icon: <Percent />, 
-    text: "Finance & Accounting",
-    roles: ['admin', 'accountant'] 
-  },
-  { 
-    to: "/project", 
-    icon: <CheckCircle />, 
-    text: "Project",
-    roles: ['admin'] 
-  },
-  { 
-    to: "/timesheets", 
-    icon: <Clock />, 
-    text: "Timesheets",
-    roles: ['admin'] 
-  },
-  { 
-    to: "/planning", 
-    icon: <Trello />, 
-    text: "Planning",
-    roles: ['admin'] 
-  },
-  { 
-    to: "/purchase", 
-    icon: <ShoppingBag />, 
-    text: "Purchase",
-    roles: ['admin', 'accountant'] 
-  },
-  { 
-    to: "/inventory", 
-    icon: <Box />, 
-    text: "Inventory",
-    roles: ['admin', 'accountant'] 
-  },
-  { 
-    to: "/inventory-supply-chain", 
-    icon: <Truck />, 
-    text: "Supply Chain",
-    roles: ['admin', 'accountant'] 
-  },
-  { 
-    to: "/manufacturing", 
-    icon: <Factory />, 
-    text: "Manufacturing",
-    roles: ['admin', 'accountant'] 
-  },
-  { 
-    to: "/hr-management", 
-    icon: <UserPlus />, 
-    text: "HR Management",
-    roles: ['admin'] 
-  },
-  { 
-    to: "/hire-purchase", 
-    icon: <CreditCard />, 
-    text: "Hire Purchase",
-    roles: ['admin', 'accountant'] 
-  },
-  { 
-    to: "/expenses", 
-    icon: <DollarSign />, 
-    text: "Expenses",
-    roles: ['admin', 'accountant'] 
-  },
-
-  { 
-    to: "/user-management", 
-    icon: <Settings />, 
-    text: "Settings",
-    roles: ['admin'] 
-  },
-  { 
-    to: "/profile", 
-    icon: <User />, 
-    text: "Profile",
-    roles: ['admin'] 
-  }
+  { to: "/dashboard", icon: <Home />, text: "Dashboard" },
+  { to: "/contacts", icon: <Users />, text: "Contacts" },
+  { to: "/crm", icon: <Briefcase />, text: "CRM" },
+  { to: "/point-of-sale", icon: <ShoppingCart />, text: "Point of Sale" },
+  { to: "/calendar", icon: <Calendar />, text: "Calendar", roles: ['admin'] },
+  { to: "/sales", icon: <DollarSign />, text: "Sales", roles: ['admin', 'accountant'] },
+  { to: "/finance-and-accounting", icon: <Percent />, text: "Finance & Accounting", roles: ['admin', 'accountant'] },
+  { to: "/project", icon: <CheckCircle />, text: "Project", roles: ['admin'] },
+  { to: "/timesheets", icon: <Clock />, text: "Timesheets", roles: ['admin'] },
+  { to: "/planning", icon: <Trello />, text: "Planning", roles: ['admin'] },
+  { to: "/purchase", icon: <ShoppingBag />, text: "Purchase", roles: ['admin', 'accountant'] },
+  { to: "/inventory", icon: <Box />, text: "Inventory", roles: ['admin', 'accountant'] },
+  { to: "/inventory-supply-chain", icon: <Truck />, text: "Supply Chain", roles: ['admin', 'accountant'] },
+  { to: "/manufacturing", icon: <Factory />, text: "Manufacturing", roles: ['admin', 'accountant'] },
+  { to: "/hr-management", icon: <UserPlus />, text: "HR Management", roles: ['admin'] },
+  { to: "/hire-purchase", icon: <CreditCard />, text: "Hire Purchase", roles: ['admin', 'accountant'] },
+  { to: "/expenses", icon: <DollarSign />, text: "Expenses", roles: ['admin', 'accountant'] },
+  { to: "/user-management", icon: <Settings />, text: "Settings", roles: ['admin'] },
+  { to: "/profile", icon: <User />, text: "Profile", roles: ['admin'] }
 ];
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
@@ -126,7 +50,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const handleLogout = async () => {
     try {
-      setIsIntentionalLogout(true); // Set intentional logout flag
+      setIsIntentionalLogout(true);
       await auth.signOut();
       navigate('/login');
     } catch (error) {
@@ -134,17 +58,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   };
 
-
-  // Filter nav items based on user role
   const filteredNavItems = navItems.filter(item => {
-    if (!item.roles) return true; // Items without roles are shown to everyone
+    if (!item.roles) return true;
     return item.roles.includes(user?.role || '');
   });
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-white">
       <motion.nav
-        className="bg-blue-800 text-white shadow-lg overflow-hidden transition-all duration-200 ease-in-out flex flex-col"
+        className="overflow-hidden transition-all duration-200 ease-in-out flex flex-col"
+        style={{
+          backgroundColor: '#000000',
+          borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+        }}
         initial={false}
         animate={{ width: isExpanded ? '256px' : '64px' }}
         onMouseEnter={() => setIsExpanded(true)}
@@ -158,7 +85,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="text-2xl font-bold text-center"
+                className="text-2xl font-bold text-center text-white"
               >
                 ERP System
               </motion.h1>
@@ -170,14 +97,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <NavItem key={item.to} {...item} isActive={location.pathname === item.to} isExpanded={isExpanded} />
           ))}
         </ul>
-        <div className="p-4 mt-auto border-t border-blue-700">
-          <button onClick={handleLogout} className="flex items-center p-2 text-white hover:bg-blue-700 rounded transition-all duration-200 ease-in-out w-full">
+        <div className="p-4 mt-auto border-t border-white/10">
+          <button 
+            onClick={handleLogout} 
+            className="flex items-center p-2 rounded transition-all duration-200 ease-in-out w-full text-white hover:bg-white/10"
+          >
             <LogOut size={20} className="mr-2" />
             {isExpanded && <span className="transition-opacity duration-200 ease-in-out">Logout</span>}
           </button>
         </div>
       </motion.nav>
-      <main className="flex-1 p-8 overflow-y-auto">
+      <main className="flex-1 p-8 overflow-y-auto bg-white">
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
@@ -200,8 +130,8 @@ const NavItem: React.FC<NavItem & { isActive: boolean; isExpanded: boolean }> = 
       to={to} 
       className={`flex items-center p-2 rounded transition-all duration-200 ease-in-out
         ${isActive 
-          ? 'bg-blue-700 text-white' 
-          : 'text-blue-100 hover:bg-blue-700 hover:text-white'
+          ? 'bg-red-600 text-white' 
+          : 'text-white/90 hover:bg-red-600/20 hover:text-white'
         }`}
     >
       {React.cloneElement(icon as React.ReactElement, { size: 20, className: 'mr-2' })}
